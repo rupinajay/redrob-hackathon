@@ -1,0 +1,48 @@
+team_name: "redrob-ranker"
+
+primary_contact:
+  name: "Team Contact"
+  email: "team@example.com"
+  phone: "+91-XXXXXXXXXX"
+
+team_members:
+  - name: "Team Member 1"
+    email: "member1@example.com"
+    role: "ML Engineer"
+
+github_repo: "https://github.com/YOUR_USERNAME/YOUR_REPO"
+sandbox_link: "https://huggingface.co/spaces/YOUR_USERNAME/redrob-ranker"
+reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./submission.csv"
+
+compute:
+  platform: "MacBook Pro M2"
+  cpu_cores: 8
+  ram_gb: 16
+  python_version: "3.11.4"
+  os: "macOS 14.2"
+  uses_gpu_for_inference: false
+  has_network_during_ranking: false
+  pre_computation_required: false
+  pre_computation_time_minutes: 0
+
+ai_tools_used:
+  - "Claude"
+
+ai_usage_summary: |
+  Used Claude for code review and architectural discussion. All candidate data processing
+  is local-only with no external API calls or network access.
+
+methodology_summary: |
+  Five-component additive scoring (title+career 35%, skills 25%, experience 18%,
+  location 12%, education 10%) with multiplicative behavioral modifier (0.40-1.20).
+  Title gate blocks keyword stuffers; Python inference detects ML engineers who don't
+  explicitly list Python. Honeypot pre-filter with 7 rules catches logically impossible
+  profiles. Services-firm rule correctly penalizes zero product-company history (not
+  current services employment). Runtime ~30s for 100K candidates on CPU.
+
+declarations:
+  read_submission_spec: true
+  code_is_original_work: true
+  no_collusion: true
+  honeypot_check_done: true
+  reproduction_tested: true

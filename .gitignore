@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+candidates.jsonl
+submission*.csv
+submission_v*.csv
+/tmp/
+.DS_Store

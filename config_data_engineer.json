@@ -1,0 +1,21 @@
+{
+  "role": "Senior Data Engineer at a product company",
+  "jd_text": "Senior Data Engineer building data pipelines, warehouses, and ETL infrastructure. Expertise in SQL, Spark, Airflow, dbt, data modeling, and cloud data platforms (AWS/GCP/Azure).",
+  "jd_tfidf_terms": ["data pipelines ETL ELT data warehouse data lake", "SQL Spark Airflow dbt data modeling", "AWS GCP Azure BigQuery Snowflake Redshift", "data engineering infrastructure scalability"],
+  "archetype_tiers": {
+    "S": {"titles": ["data engineer", "data infrastructure engineer", "data platform engineer", "big data engineer"], "base_score": 1.0, "cap": 1.0, "gate_passes": true, "label": "Data Engineer"},
+    "A": {"titles": ["backend engineer", "software engineer", "swe", "data scientist", "ml engineer"], "base_score": 0.70, "cap": 1.0, "gate_passes": true, "label": "Related Engineering"},
+    "B": {"titles": ["analytics engineer", "business intelligence engineer", "database administrator"], "base_score": 0.40, "cap": 0.50, "gate_passes": false, "label": "Analytics/BI"},
+    "C": {"titles": ["frontend engineer", "full stack", "devops engineer", "qa engineer", "mobile developer"], "base_score": 0.20, "cap": 0.40, "gate_passes": false, "label": "Other Engineering"},
+    "D": {"keywords": ["hr", "marketing", "sales", "accountant", "mechanical", "civil", "manager", "analyst"], "base_score": 0.10, "cap": 0.20, "gate_passes": false, "label": "Non-Engineering"}
+  },
+  "component_weights": {"archetype": 0.30, "retrieval_evidence": 0.25, "career_pattern": 0.20, "location": 0.10, "education": 0.15},
+  "retrieval_skills": ["Spark", "Airflow", "Kafka", "dbt", "BigQuery", "Snowflake", "Redshift", "Hadoop", "Hive", "Presto"],
+  "ranking_skills": ["SQL", "Python", "Scala", "Java", "data modeling", "star schema", "dimensional modeling"],
+  "eval_skills": ["data quality", "data validation", "monitoring", "observability", "SLA"],
+  "prod_skills": ["Docker", "Kubernetes", "Terraform", "CI/CD", "GCP", "AWS", "Azure"],
+  "retrieval_desc_kw": ["pipeline", "etl", "elt", "data warehouse", "data lake", "streaming", "batch processing"],
+  "ranking_desc_kw": ["sql", "query optimization", "data modeling", "schema design"],
+  "eval_desc_kw": ["data quality", "validation", "monitoring"],
+  "prod_desc_kw": ["deployed", "production", "scalable", "pipeline", "infrastructure"]
+}
