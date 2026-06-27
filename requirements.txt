@@ -1,1 +1,2 @@
-# No external dependencies - uses only Python standard library
+numpy<2.0
+scikit-learn>=1.0,<2.0

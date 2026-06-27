@@ -1,17 +1,20 @@
 team_name: "redrob-ranker"
 
 primary_contact:
-  name: "Team Contact"
-  email: "team@example.com"
-  phone: "+91-XXXXXXXXXX"
+  name: "Rupin Ajay"
+  email: "rupinajay@gmail.com"
+  phone: "+91 8248863436"
 
 team_members:
-  - name: "Team Member 1"
-    email: "member1@example.com"
+  - name: "Rupin Ajay"
+    email: "rupinajay@gmail.com"
+    role: "SDE"
+  - name: "Sanjay PN"
+    email: "sanjayperam2604@gmail.com"
     role: "ML Engineer"
 
-github_repo: "https://github.com/YOUR_USERNAME/YOUR_REPO"
-sandbox_link: "https://huggingface.co/spaces/YOUR_USERNAME/redrob-ranker"
+github_repo: "https://github.com/rupinajay/redrob-hackathon"
+sandbox_link: "https://huggingface.co/spaces/rupinajay/redrob-ranker"
 reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./submission.csv"
 
 compute:
