@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Redrob Hackathon Ranker v5.0 — Data-Driven Ranker
+Redrob Hackathon Ranker v6 — PRP v2.0 Compliant
 
 Architecture:
-  1. Title gate (pre-filter): non-engineering titles capped at 0.30
-  2. Continuous title scoring (no hard archetype tiers)
-  3. Retrieval evidence + product company + behavioral as main signals
-  4. Behavioral restored to moderate range (data shows AI/ML candidates
-     have 2x open_to_work and 40% higher response rates than rest)
+  1. Honeypot pre-filter (7 rules)
+  2. Title gate with seniority + career modifiers
+  3. PRP-corrected weights: A=35%, B=25%, C=18%, D=12%, E=10%
+  4. B = average of 4 sub-scores (B1 embeddings, B2 vector DB, B3 prod ML, B4 eval)
+  5. C = YOE band + AI/ML proportion bonus + product proportion
+  6. Behavioral [0.40, 1.20] with 11 PRP signals
+  7. Optional TF-IDF (--with-embeddings, 10% blend)
 """
 import argparse, csv, json, sys, math
 from collections import Counter
@@ -46,9 +48,10 @@ NON_ENG_KW = ['hr', 'operations', 'marketing', 'accountant', 'mechanical', 'civi
     'sales executive', 'content writer', 'sales']
 
 # Retrieval evidence
-# Retrieval evidence — split into subcategories per JD
-RETRIEVAL_SKILLS = {'BM25', 'FAISS', 'Annoy', 'sentence-transformers', 'BGE', 'E5',
-    'dense retrieval', 'sparse retrieval', 'hybrid search', 'vector search', 'embedding'}
+# Retrieval evidence — split into B1 (embeddings) and B2 (vector DB) per PRP
+EMBEDDING_SKILLS = {'sentence-transformers', 'BGE', 'E5', 'dense retrieval', 'bi-encoder',
+    'sparse retrieval', 'hybrid search', 'embedding'}
+FAISS_SKILLS = {'FAISS', 'Annoy'}
 VECTOR_DB_SKILLS = {'Pinecone', 'Qdrant', 'Weaviate', 'Milvus', 'Chroma', 'Elasticsearch', 'OpenSearch'}
 RANKING_SKILLS = {'NDCG', 'MRR', 'MAP', 'learning to rank', 'LambdaRank',
     'recommendation systems', 'recommender', 'matching', 're-ranking'}
@@ -57,9 +60,8 @@ PROD_ML_SKILLS = {'PyTorch', 'TensorFlow', 'scikit-learn', 'Hugging Face', 'tran
     'Keras', 'Langchain', 'FastAPI', 'Flask', 'Docker', 'Kubernetes', 'CI/CD',
     'MLOps', 'Airflow', 'Kubeflow', 'GCP', 'AWS', 'Azure', 'Spark', 'Python'}
 
-RETRIEVAL_DESC_KW = ['retrieval', 'semantic search', 'dense retrieval', 'hybrid search',
-    'vector search', 'bm25', 'embedding', 'vector database', 're-ranking', 'reranking',
-    'cross-encoder']
+EMBEDDING_DESC_KW = ['semantic search', 'dense retrieval', 'embedding index', 'bi-encoder', 'cross-encoder']
+VECTOR_DB_DESC_KW = ['vector database', 'ann index', 'hybrid search', 'sparse+dense', 'vector search']
 RANKING_DESC_KW = ['ranking', 'recommendation', 'matching', 'ndcg', 'mrr', 'learning to rank']
 EVAL_DESC_KW = ['evaluation', 'offline eval', 'ab testing', 'a/b testing', 'metrics']
 PROD_DESC_KW = ['deployed', 'production', 'pipeline', 'served', 'scalable', 'latency', 'throughput']
@@ -131,10 +133,27 @@ def score_title_relevance(candidate):
     t = candidate.get('profile', {}).get('current_title', '').lower()
     base = get_title_base(t)
     mult = get_seniority_mult(t)
-    return min(1.0, base * mult), base
+    title_score = base * mult
+
+    # Career trajectory modifiers per PRP
+    career = candidate.get('career_history', [])
+    mods = 0.0
+    if career:
+        avg_tenure = sum(r.get('duration_months', 0) for r in career) / len(career)
+        if avg_tenure >= 18: mods += 0.05
+    if len(career) >= 2:
+        titles = [r.get('title', '').lower() for r in career]
+        if any(k in titles[-1] for k in SENIORITY_KW):
+            if not any(k in titles[0] for k in SENIORITY_KW):
+                mods += 0.05
+    desc = ' '.join(r.get('description', '') for r in career).lower()
+    if any(k in desc for k in ['built', 'designed', 'shipped', 'deployed', 'owned', 'led', 'architected']):
+        mods += 0.05
+
+    return min(1.0, title_score + mods), base
 
 def score_skills_evidence(candidate):
-    """Return (retrieval, ranking, evaluation, production, composite) subscores."""
+    """Return (B1_embeddings, B2_vector_db, B4_eval, B3_prod_python, composite) per PRP."""
     skills = candidate.get('skills', [])
     career = candidate.get('career_history', [])
     desc = ' '.join(r.get('description', '') for r in career).lower()
@@ -162,29 +181,58 @@ def score_skills_evidence(candidate):
             return 0.0
         return min(max_score, max_score * math.sqrt(mentions) / 3.0)
 
-    r = max(best(RETRIEVAL_SKILLS | VECTOR_DB_SKILLS, 0.85), desc_density(RETRIEVAL_DESC_KW, 0.35), title_density(RETRIEVAL_DESC_KW, 0.25))
-    rk = max(best(RANKING_SKILLS, 0.85), desc_density(RANKING_DESC_KW, 0.35), title_density(RANKING_DESC_KW, 0.25))
-    e = max(best(EVAL_SKILLS, 0.80), desc_density(EVAL_DESC_KW, 0.30))
-    p = max(best(PROD_ML_SKILLS, 0.70), desc_density(PROD_DESC_KW, 0.25))
-    composite = 0.35 * r + 0.30 * rk + 0.20 * p + 0.15 * e
-    return r, rk, e, p, composite
+    # B1: Embeddings-based retrieval
+    b1 = max(best(EMBEDDING_SKILLS | FAISS_SKILLS, 0.85), desc_density(EMBEDDING_DESC_KW, 0.35), title_density(EMBEDDING_DESC_KW, 0.25))
+    if b1 == 0.0 and best(VECTOR_DB_SKILLS, 0.50) > 0:
+        b1 = 0.10
 
-def score_product_experience(candidate):
+    # B2: Vector DB / hybrid search
+    b2 = max(best(VECTOR_DB_SKILLS, 0.85), desc_density(VECTOR_DB_DESC_KW, 0.35), title_density(VECTOR_DB_DESC_KW, 0.25))
+    if b2 == 0.0 and best(FAISS_SKILLS, 0.50) > 0:
+        b2 = 0.10
+
+    # B3: Production ML + Python
+    b3 = max(best(PROD_ML_SKILLS, 0.70), desc_density(PROD_DESC_KW, 0.25))
+    if 'Python' in [s['name'] for s in skills]:
+        py_skill = [s for s in skills if s['name'] == 'Python'][0]
+        b3 = max(b3, min(1.0, 0.85 * skill_trust(py_skill)))
+
+    # B4: Ranking evaluation frameworks
+    b4 = max(best(EVAL_SKILLS, 0.80), desc_density(EVAL_DESC_KW, 0.30))
+
+    # Composite = simple average per PRP spec
+    composite = (b1 + b2 + b3 + b4) / 4.0
+    return b1, b2, b3, b4, composite
+
+def score_experience(candidate):
+    """Component C: YOE band + product proportion + AI/ML role proportion."""
     career = candidate.get('career_history', [])
+    yoe = candidate.get('profile', {}).get('years_of_experience', 0)
+
+    # YOE band
+    if 5 <= yoe <= 9: yoe_score = 1.00
+    elif 4 <= yoe < 5 or 9 < yoe <= 11: yoe_score = 0.82
+    elif 3 <= yoe < 4 or 11 < yoe <= 14: yoe_score = 0.58
+    else: yoe_score = 0.25
+
+    # Product proportion
     prop = get_product_prop(career)
     all_services = all(any(s in r.get('company', '') for s in SERVICES_FIRMS) for r in career) if career else False
-    penalty = -0.20 if all_services else 0.0
-    bonus = 0.10 if prop > 0.5 else 0.0
-    title = candidate.get('profile', {}).get('current_title', '').lower()
-    seniority = 0.05 if any(k in title for k in SENIORITY_KW) else 0.0
-    return min(1.0, max(0.0, prop + bonus + penalty + seniority))
 
-def score_yoe(candidate):
-    yoe = candidate.get('profile', {}).get('years_of_experience', 0)
-    if 5 <= yoe <= 9: return 1.0
-    if 4 <= yoe < 5 or 9 < yoe <= 11: return 0.82
-    if 3 <= yoe < 4 or 11 < yoe <= 14: return 0.58
-    return 0.25
+    # AI/ML role proportion bonus per PRP
+    ai_core = {'ml engineer', 'ai engineer', 'machine learning engineer', 'ai/ml engineer',
+        'ai research engineer', 'applied scientist', 'applied ml engineer', 'ai specialist',
+        'search engineer', 'recommendation engineer', 'recommendation systems engineer',
+        'ranking engineer', 'matching engineer', 'nlp engineer', 'computer vision engineer'}
+    ai_months = sum(r.get('duration_months', 0) for r in career
+                    if any(ai in r.get('title', '').lower() for ai in ai_core))
+    total_months = sum(r.get('duration_months', 0) for r in career)
+    ai_bonus = (ai_months / total_months * 0.20) if total_months > 0 else 0.0
+    prod_bonus = prop * 0.15
+
+    raw = yoe_score + prod_bonus + ai_bonus
+    if all_services: raw -= 0.20
+    return min(1.0, max(0.0, raw))
 
 def score_location(candidate):
     p = candidate.get('profile', {})
@@ -212,35 +260,44 @@ def score_education(candidate):
 def get_behavioral_mod(candidate):
     sig = candidate.get('redrob_signals', {})
     mod = 0.0
-    if sig.get('open_to_work_flag'): mod += 0.08
+    if sig.get('open_to_work_flag'): mod += 0.10
     last_active = sig.get('last_active_date', '')
     if last_active:
         try:
             d = (datetime.now() - datetime.strptime(last_active, '%Y-%m-%d')).days
-            if d < 30: mod += 0.08
-            elif d > 180: mod -= 0.18
-            elif d > 90: mod -= 0.08
+            if d < 30: mod += 0.12
+            elif 90 <= d <= 180: mod -= 0.12
+            elif d > 180: mod -= 0.28
         except: pass
     resp = sig.get('recruiter_response_rate', 0.5)
-    if resp >= 0.60: mod += 0.06
-    elif resp < 0.20: mod -= 0.12
+    if resp >= 0.60: mod += 0.08
+    elif resp < 0.20: mod -= 0.18
+    icr = sig.get('interview_completion_rate', 0.5)
+    if icr >= 0.80: mod += 0.06
+    elif icr < 0.40: mod -= 0.12
     notice = sig.get('notice_period_days', 60)
-    if notice <= 30: mod += 0.06
-    elif notice > 90: mod -= 0.10
-    elif notice > 60: mod -= 0.04
-    return max(0.90, min(1.10, 1.0 + mod))
+    if notice <= 30: mod += 0.08
+    elif 61 <= notice <= 90: mod -= 0.06
+    elif notice > 90: mod -= 0.14
+    gh = sig.get('github_activity_score', 0)
+    if gh > 50: mod += 0.06
+    art = sig.get('avg_response_time_hours', 999)
+    if art < 12: mod += 0.04
+    elif art > 72: mod -= 0.06
+    if sig.get('verified_email') and sig.get('verified_phone'): mod += 0.03
+    return max(0.40, min(1.20, 1.0 + mod))
 
 # ---------------------------------------------------------------------------
 # Candidate analysis dump
 # ---------------------------------------------------------------------------
 def dump_top_features(scored, n=20):
-    print(f"\n{'ID':<16} {'TITLE':<34} {'SCORE':<7} {'TITLE':<7} {'RETR':<6} {'RANK':<6} {'EVAL':<6} {'PROD':<6} {'CPROD':<6} {'YOE':<6} {'LOC':<6} {'EDU':<6} {'BEH':<6}")
+    print(f"\n{'ID':<16} {'TITLE':<34} {'SCORE':<7} {'A_TTL':<6} {'B1_EMB':<7} {'B2_VDB':<7} {'B3_ML':<7} {'B4_EVAL':<8} {'C_EXP':<6} {'D_LOC':<6} {'E_EDU':<6} {'F_BEH':<6}")
     print('-' * 130)
     for e in scored[:n]:
         c = e['candidate']; p = c['profile']
         print(f"{e['candidate_id']:<16} {p['current_title'][:33]:<34} {e['score']:<7.4f} "
-              f"{e['score_a']:<7.3f} {e['retrieval']:<6.3f} {e['ranking']:<6.3f} {e['eval_score']:<6.3f} {e['prod_score']:<6.3f} "
-              f"{e['score_c']:<6.3f} {e['score_yoe']:<6.3f} {e['score_d']:<6.3f} {e['score_e']:<6.3f} {e['behavioral_mod']:<6.3f}")
+              f"{e['score_a']:<6.3f} {e['b1']:<7.3f} {e['b2']:<7.3f} {e['b3']:<7.3f} {e['b4']:<8.3f} "
+              f"{e['score_c']:<6.3f} {e['score_d']:<6.3f} {e['score_e']:<6.3f} {e['behavioral_mod']:<6.3f}")
 
 # ---------------------------------------------------------------------------
 # Honeypot detection
@@ -256,6 +313,16 @@ def detect_honeypots(candidate):
     for s in skills:
         if s.get('proficiency') in ('advanced', 'expert') and s.get('duration_months', -1) == 0:
             rules.add('HP-1')
+    for r in ch:
+        start = r.get('start_date', '')
+        if start and r.get('is_current', False):
+            try:
+                years = (datetime.now() - datetime.strptime(start, '%Y-%m-%d')).days / 365.25
+                if years > 12:
+                    co = r.get('company', '').lower()
+                    if any(k in co for k in {'ai', 'tech', 'labs', 'data', 'digital', 'soft', 'solution', 'app'}):
+                        rules.add('HP-3'); break
+            except: pass
     total_career_y = sum(r.get('duration_months', 0) for r in ch) / 12
     if total_career_y > p.get('years_of_experience', 0) + 3:
         rules.add('HP-2')
@@ -272,7 +339,7 @@ def detect_honeypots(candidate):
 # ---------------------------------------------------------------------------
 # Reasoning
 # ---------------------------------------------------------------------------
-def gen_reasoning(c, sa, sb, sc, sd, se, sf, bm, title_base, sr=None, srk=None, sev=None, sp=None):
+def gen_reasoning(c, sa, sb, sc, sd, se, sf, bm, title_base, b1=None, b2=None, b3=None, b4=None):
     p = c['profile']
     sig = c.get('redrob_signals', {})
     skills = c.get('skills', [])
@@ -284,41 +351,33 @@ def gen_reasoning(c, sa, sb, sc, sd, se, sf, bm, title_base, sr=None, srk=None, 
 
     parts = [f"{title} with {yoe}yrs"]
 
-    # Identify specific evidence
     skill_names = [s['name'] for s in skills]
-    retrieval_skills = [s for s in skill_names if s in RETRIEVAL_SKILLS | VECTOR_DB_SKILLS]
-    ml_skills = [s for s in skill_names if s in PROD_ML_SKILLS]
-    ranking_skills = [s for s in skill_names if s in RANKING_SKILLS]
-
-    has_ranking_desc = srk is not None and srk >= 0.20
-    has_eval_desc = sev is not None and sev >= 0.20
-
-    # Build evidence strings
     evidence = []
 
-    if has_ranking_desc or ranking_skills:
+    has_ranking_skill = any(s in RANKING_SKILLS for s in skill_names)
+    has_eval_skill = any(s in EVAL_SKILLS for s in skill_names)
+    has_vector_db = any(s in VECTOR_DB_SKILLS for s in skill_names)
+    has_embedding = any(s in EMBEDDING_SKILLS | FAISS_SKILLS for s in skill_names)
+
+    if has_ranking_skill or (b4 is not None and b4 >= 0.20):
         evidence.append("ranking/recommendation experience")
 
-    if retrieval_skills and not ranking_skills:
-        top_r = retrieval_skills[:2]
-        evidence.append(f"retrieval evidence ({', '.join(top_r)})")
+    if has_vector_db:
+        top_vdb = [s for s in skill_names if s in VECTOR_DB_SKILLS][:2]
+        evidence.append(f"vector db ({', '.join(top_vdb)})")
+    elif has_embedding:
+        top_emb = [s for s in skill_names if s in EMBEDDING_SKILLS | FAISS_SKILLS][:2]
+        evidence.append(f"embeddings ({', '.join(top_emb)})")
 
-    if ml_skills and not evidence:
-        top_ml = ml_skills[:2]
-        evidence.append(f"ML skills ({', '.join(top_ml)})")
-
-    # Professional background
     prod_roles = [r for r in career
         if r.get('duration_months', 0) > 12
         and not any(s in r.get('company', '') for s in SERVICES_FIRMS)]
     if prod_roles:
-        best = prod_roles[0]
-        evidence.append(f"product experience at {best['company']}")
+        evidence.append(f"product exp at {prod_roles[0]['company']}")
 
     if evidence:
         parts.append('; '.join(evidence[:2]) + ';')
 
-    # Concerns
     concerns = []
     n = sig.get('notice_period_days', 60)
     if n > 60: concerns.append(f"{n}-day notice")
@@ -346,16 +405,16 @@ def rank_candidates(candidates, semantic_scores=None):
             continue
 
         sa, title_base = score_title_relevance(c)
-        sr, srk, sev, sp, sb = score_skills_evidence(c)
-        sc = score_product_experience(c)
+        b1, b2, b3, b4, sb = score_skills_evidence(c)
+        sc = score_experience(c)
         sd = score_location(c)
         se = score_education(c)
-        sy = score_yoe(c)
 
-        raw = 0.30 * sa + 0.30 * sb + 0.20 * sc + 0.08 * sy + 0.07 * sd + 0.05 * se
+        raw = 0.35 * sa + 0.25 * sb + 0.18 * sc + 0.12 * sd + 0.10 * se
 
         sf = semantic_scores[i] if semantic_scores is not None else 0.0
-        raw = 0.90 * raw + 0.10 * sf
+        if sf > 0:
+            raw = 0.90 * raw + 0.10 * sf
 
         bm = get_behavioral_mod(c)
         final = min(1.0, max(0.0, raw * bm))
@@ -364,12 +423,11 @@ def rank_candidates(candidates, semantic_scores=None):
         elif title_base >= 0.20: final = min(final, 0.50)
         else: final = min(final, 0.30)
 
-        tier = 'AI' if title_base >= 0.80 else ('DATA' if title_base >= 0.40 else ('ENG' if title_base >= 0.20 else 'NON'))
         results.append({
             'candidate_id': c['candidate_id'], 'score': final, 'score_a': sa,
-            'retrieval': sr, 'ranking': srk, 'eval_score': sev, 'prod_score': sp,
-            'score_b': sb, 'score_c': sc, 'score_yoe': sy, 'score_d': sd, 'score_e': se,
-            'score_f': sf, 'behavioral_mod': bm, 'tier': tier,
+            'b1': b1, 'b2': b2, 'b3': b3, 'b4': b4,
+            'score_b': sb, 'score_c': sc, 'score_d': sd, 'score_e': se,
+            'score_f': sf, 'behavioral_mod': bm,
             'title_base': title_base, 'candidate': c
         })
 
@@ -384,8 +442,7 @@ def rank_candidates(candidates, semantic_scores=None):
             'reasoning': gen_reasoning(r['candidate'], r['score_a'], r['score_b'],
                 r['score_c'], r['score_d'], r['score_e'], r.get('score_f', 0.0),
                 r['behavioral_mod'], r['title_base'],
-                sr=r.get('retrieval'), srk=r.get('ranking'),
-                sev=r.get('eval_score'), sp=r.get('prod_score'))
+                b1=r.get('b1'), b2=r.get('b2'), b3=r.get('b3'), b4=r.get('b4'))
         })
     return out, results
 
@@ -406,10 +463,10 @@ def build_profile_text(c):
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    parser = argparse.ArgumentParser(description='Redrob Ranker v5 (Data-Driven)')
+    parser = argparse.ArgumentParser(description='Redrob Ranker v6 (PRP-Compliant)')
     parser.add_argument('--candidates', required=True)
     parser.add_argument('--out', required=True)
-    parser.add_argument('--no-embeddings', action='store_true')
+    parser.add_argument('--with-embeddings', action='store_true', help='Enable TF-IDF semantic similarity (10 pct blend, not in PRP spec)')
     parser.add_argument('--dump', action='store_true', help='Print feature dump of top candidates')
     args = parser.parse_args()
 
@@ -418,7 +475,7 @@ def main():
     print(f"Loaded {len(candidates)} candidates")
 
     semantic_scores = None
-    if not args.no_embeddings:
+    if args.with_embeddings:
         print("Building TF-IDF vectorizer...")
         texts = [build_profile_text(c) for c in candidates]
         vec = TfidfVectorizer(ngram_range=(1, 2), max_features=10000,
