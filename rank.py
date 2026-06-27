@@ -345,7 +345,7 @@ def detect_honeypots(candidate):
                 e1 = datetime.strptime(non_current[i]['end_date'], '%Y-%m-%d')
                 s2 = datetime.strptime(non_current[j]['start_date'], '%Y-%m-%d')
                 e2 = datetime.strptime(non_current[j]['end_date'], '%Y-%m-%d')
-                if s1 <= e2 and s2 <= e1:
+                if s1 < e2 and s2 < e1:
                     rules.add('HP-3')
             except: pass
     if edu:
