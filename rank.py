@@ -261,6 +261,7 @@ def get_behavioral_mod(candidate):
     sig = candidate.get('redrob_signals', {})
     mod = 0.0
     if sig.get('open_to_work_flag'): mod += 0.10
+    else: mod -= 0.30
     last_active = sig.get('last_active_date', '')
     if last_active:
         try:
@@ -285,6 +286,9 @@ def get_behavioral_mod(candidate):
     if art < 12: mod += 0.04
     elif art > 72: mod -= 0.06
     if sig.get('verified_email') and sig.get('verified_phone'): mod += 0.03
+    work_mode = sig.get('preferred_work_mode', '')
+    if work_mode in ('hybrid', 'flexible'): mod += 0.02
+    elif work_mode == 'remote': mod -= 0.02
     return max(0.40, min(1.20, 1.0 + mod))
 
 # ---------------------------------------------------------------------------
@@ -315,13 +319,17 @@ def detect_honeypots(candidate):
             rules.add('HP-1')
     for r in ch:
         start = r.get('start_date', '')
-        if start and r.get('is_current', False):
+        if start:
             try:
-                years = (datetime.now() - datetime.strptime(start, '%Y-%m-%d')).days / 365.25
+                end = (datetime.now() if r.get('is_current')
+                       else datetime.strptime(r.get('end_date', ''), '%Y-%m-%d')
+                       if r.get('end_date') else None)
+                if end is None: continue
+                years = (end - datetime.strptime(start, '%Y-%m-%d')).days / 365.25
                 if years > 12:
                     co = r.get('company', '').lower()
                     if any(k in co for k in {'ai', 'tech', 'labs', 'data', 'digital', 'soft', 'solution', 'app'}):
-                        rules.add('HP-3'); break
+                        rules.add('HP-3')
             except: pass
     total_career_y = sum(r.get('duration_months', 0) for r in ch) / 12
     if total_career_y > p.get('years_of_experience', 0) + 3:
@@ -329,6 +337,17 @@ def detect_honeypots(candidate):
     expert_zero = sum(1 for s in skills if s.get('proficiency') == 'expert' and s.get('endorsements', 0) == 0)
     if expert_zero >= 5: rules.add('HP-4')
     if len([r for r in ch if r.get('is_current', False)]) > 1: rules.add('HP-5')
+    non_current = [r for r in ch if not r.get('is_current') and r.get('start_date') and r.get('end_date')]
+    for i in range(len(non_current)):
+        for j in range(i + 1, len(non_current)):
+            try:
+                s1 = datetime.strptime(non_current[i]['start_date'], '%Y-%m-%d')
+                e1 = datetime.strptime(non_current[i]['end_date'], '%Y-%m-%d')
+                s2 = datetime.strptime(non_current[j]['start_date'], '%Y-%m-%d')
+                e2 = datetime.strptime(non_current[j]['end_date'], '%Y-%m-%d')
+                if s1 <= e2 and s2 <= e1:
+                    rules.add('HP-3')
+            except: pass
     if edu:
         latest_end = max(e.get('end_year', 0) for e in edu)
         if latest_end >= datetime.now().year - 1 and latest_end + p.get('years_of_experience', 0) > datetime.now().year + 2: rules.add('HP-6')

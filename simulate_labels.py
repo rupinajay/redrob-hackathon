@@ -7,14 +7,15 @@ import csv, json, math, sys
 from pathlib import Path
 from collections import Counter
 
-sys.path.insert(0, '/Users/rupinajay/Developer/redrob')
+HERE = Path(__file__).parent
+sys.path.insert(0, str(HERE))
 from rank import (SERVICES_FIRMS, EMBEDDING_SKILLS, FAISS_SKILLS,
     VECTOR_DB_SKILLS, RANKING_SKILLS, EVAL_SKILLS, PROD_ML_SKILLS,
     detect_honeypots, score_skills_evidence,
     score_title_relevance, score_experience, score_location,
     score_education)
 
-SRC = '/Users/rupinajay/Developer/redrob/candidates.jsonl'
+SRC = HERE / 'candidates.jsonl'
 SUB = '/tmp/submission_v6.csv'
 
 AI_ML_TITLES = {'ml engineer', 'ai engineer', 'machine learning engineer', 'ai/ml engineer',
