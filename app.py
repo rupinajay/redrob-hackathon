@@ -353,7 +353,8 @@ with gr.Blocks(
         if file is None:
             sm = '<div class="sm">Upload a candidates.jsonl file to begin.</div>'
             return sm, "", gr.update(visible=False), None
-        with open(file.name, "rb") as f:
+        path = file if isinstance(file, str) else file.path
+        with open(path, "rb") as f:
             data = f.read()
         stats, table, csv_text = rank_candidates(data)
         sm = f'<div class="sm">{stats}</div>'
@@ -370,4 +371,4 @@ with gr.Blocks(
 
 
 if __name__ == "__main__":
-    demo.launch(css=CSS, theme=gr.themes.Soft())
+    demo.launch(css=CSS, theme=gr.themes.Soft(), show_error=True)
