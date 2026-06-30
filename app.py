@@ -15,45 +15,39 @@ import rank
 
 CONFIG_PATH = Path(__file__).parent / "config.json"
 
-# ── Brand palette ──
-# Primary: Indigo (trust, intelligence, tech)
-# Accent: Amber (warmth, energy, action)
-# Surface: White on cool-gray background
-# Text: Dark slate with semantic hierarchy
-
 CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #f4f5f7;
-  --surface: #ffffff;
-  --surface-hover: #f8f9fc;
-  --border: #e2e4e9;
-  --border-light: #eef0f4;
-  --primary: #4f46e5;
-  --primary-dark: #3730a3;
-  --primary-light: #eef2ff;
-  --primary-bg: rgba(79, 70, 229, 0.04);
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface-hover: #111111;
+  --border: #1f1f1f;
+  --border-light: #181818;
+  --primary: #818cf8;
+  --primary-dark: #6366f1;
+  --primary-light: #1e1b4b;
+  --primary-bg: rgba(129, 140, 248, 0.06);
   --accent: #f59e0b;
-  --accent-bg: #fffbeb;
-  --text: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --success: #059669;
-  --success-bg: #ecfdf5;
-  --success-border: #a7f3d0;
+  --accent-bg: #1c1500;
+  --text: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --success: #34d399;
+  --success-bg: #052e16;
+  --success-border: #166534;
   --radius: 10px;
   --radius-sm: 6px;
-  --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 1px rgba(0,0,0,0.02);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.04), 0 2px 4px -1px rgba(0,0,0,0.02);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.04), 0 4px 6px -2px rgba(0,0,0,0.02);
+  --shadow: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.3);
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'SF Mono', 'SFMono-Regular', ui-monospace, monospace;
 }
 
 body {
   margin: 0; padding: 0;
-  background: var(--bg);
+  background: var(--bg) !important;
   font-family: var(--font);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -63,29 +57,30 @@ body {
   max-width: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
-  background: transparent !important;
+  background: var(--bg) !important;
 }
 
 /* ── Header ── */
 .hdr {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #1e1b4b 0%, #0f0f0f 100%);
   padding: 3rem 1.5rem 2.5rem;
   text-align: center;
   position: relative;
   overflow: hidden;
+  border-bottom: 1px solid var(--border);
 }
 .hdr::after {
   content: '';
   position: absolute; inset: 0;
-  background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(255,255,255,0.08) 0%, transparent 60%);
+  background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(129,140,248,0.06) 0%, transparent 60%);
   pointer-events: none;
 }
 .hdr h1 {
-  font-size: 2rem; font-weight: 700; color: #fff;
+  font-size: 2rem; font-weight: 700; color: var(--primary);
   letter-spacing: -0.03em; margin: 0 0 0.5rem 0; position: relative;
 }
 .hdr p {
-  font-size: 1rem; color: rgba(255,255,255,0.7); font-weight: 400;
+  font-size: 1rem; color: var(--text-muted); font-weight: 400;
   margin: 0; position: relative;
 }
 
@@ -130,7 +125,7 @@ body {
   min-height: 48px !important;
   font-size: 0.88rem !important;
   font-weight: 500 !important;
-  color: var(--text-secondary) !important;
+  color: var(--text-muted) !important;
 }
 .upload-r .gr-file label:hover {
   border-color: var(--primary) !important;
@@ -143,21 +138,21 @@ body {
   height: 100% !important;
   min-height: 48px !important;
   padding: 0 1.5rem !important;
-  background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+  background: linear-gradient(135deg, #6366f1, #818cf8) !important;
   border: none !important;
   border-radius: var(--radius-sm) !important;
-  color: #fff !important;
+  color: #000 !important;
   font-family: var(--font) !important;
   font-size: 0.88rem !important;
   font-weight: 600 !important;
   cursor: pointer !important;
   white-space: nowrap !important;
   transition: all 0.15s ease !important;
-  box-shadow: 0 2px 8px rgba(79,70,229,0.25) !important;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3) !important;
 }
 .run-btn-wrap button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(79,70,229,0.35) !important;
+  box-shadow: 0 4px 12px rgba(99,102,241,0.5) !important;
 }
 
 /* ── Summary ── */
@@ -166,7 +161,7 @@ body {
   background: var(--success-bg);
   border: 1px solid var(--success-border);
   border-radius: var(--radius-sm);
-  color: #065f46;
+  color: var(--success);
   font-size: 0.88rem;
   font-weight: 500;
 }
@@ -182,8 +177,8 @@ body {
   font-size: 0.86rem;
 }
 .rt thead th {
-  background: #f8f9fc;
-  color: var(--text-secondary);
+  background: var(--surface-hover);
+  color: var(--text-muted);
   font-size: 0.7rem; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.06em;
   padding: 9px 12px; text-align: left;
@@ -213,10 +208,10 @@ body {
   background: var(--primary) !important;
   border: none !important;
   border-radius: var(--radius-sm) !important;
-  color: #fff !important;
+  color: #000 !important;
   font-family: var(--font) !important;
   font-size: 0.85rem !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
   cursor: pointer !important;
   transition: all 0.15s ease !important;
   margin: 0 !important;
@@ -234,6 +229,24 @@ body {
 }
 .ft a { color: var(--primary); text-decoration: none; font-weight: 500; }
 .ft a:hover { text-decoration: underline; }
+
+/* ── Gradio overrides ── */
+.gr-box, .wrap, .panel, .form, .input-wrap, .output-wrap {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+input, textarea, select {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+label, .label-text {
+  color: var(--text-secondary) !important;
+}
+.prose, .markdown {
+  color: var(--text) !important;
+}
 """
 
 
@@ -371,4 +384,4 @@ with gr.Blocks(
 
 
 if __name__ == "__main__":
-    demo.launch(css=CSS, theme=gr.themes.Soft())
+    demo.launch(css=CSS, theme=gr.themes.Soft(primary_hue=gr.themes.colors.indigo, neutral_hue=gr.themes.colors.gray, radius_size=gr.themes.sizes.radius_sm))
