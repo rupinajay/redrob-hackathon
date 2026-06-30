@@ -1,0 +1,184 @@
+{
+  "meta": {
+    "role": "Senior AI Engineer",
+    "version": "2.1",
+    "description": "Production config — multi-view semantic matching, soft title gates, career trajectory quality, description-validated skills."
+  },
+  "weights": {
+    "archetype_title": 0.25,
+    "skills_evidence": 0.25,
+    "semantic_similarity": 0.15,
+    "career_pattern": 0.15,
+    "location": 0.10,
+    "education": 0.10
+  },
+  "archetype": {
+    "default_score": 0.10,
+    "soft_cap_factor": 1.0,
+    "seniority_multiplier": 1.0,
+    "junior_multiplier": 0.75,
+    "no_seniority_multiplier": 0.90,
+    "career_tenure_bonus_months": 18,
+    "career_tenure_bonus": 0.05,
+    "career_progression_bonus": 0.05,
+    "action_verb_bonus": 0.05,
+    "action_verbs": ["built", "designed", "shipped", "deployed", "owned", "led", "architected"],
+    "seniority_keywords": ["senior", "lead", "principal", "staff", "head of", "director"],
+    "junior_keywords": ["junior", "associate", "trainee", "intern", "fresher"],
+    "tiers": [
+      {"id": "S", "keywords": ["search engineer", "recommendation engineer", "recommendation systems engineer", "ranking engineer", "matching engineer", "search/recsys"], "base_score": 1.0, "cap": 1.0, "gate_passes": true, "label": "Search/Recommendation/Ranking"},
+      {"id": "A", "keywords": ["ml engineer", "ai engineer", "applied scientist", "machine learning engineer", "ai/ml engineer", "nlp engineer", "ai research engineer", "applied ml engineer", "ai specialist", "senior nlp engineer", "computer vision engineer"], "base_score": 0.95, "cap": 1.0, "gate_passes": true, "label": "AI/ML Engineer"},
+      {"id": "B", "keywords": ["data scientist", "senior data scientist", "llm engineer", "mlops engineer", "data engineer", "senior data engineer", "analytics engineer"], "base_score": 0.50, "cap": 0.55, "gate_passes": false, "label": "Data/LLM/DE"},
+      {"id": "C", "keywords": ["software engineer", "swe", "backend engineer", "frontend engineer", "frontend developer", "full stack", "full stack developer", "devops engineer", "devops", "qa engineer", "qa", "mobile developer", "cloud engineer", "systems engineer", "java developer", ".net developer"], "base_score": 0.30, "cap": 0.55, "gate_passes": false, "label": "General Engineering"},
+      {"id": "D", "keywords": ["hr", "operations", "marketing", "accountant", "mechanical", "civil", "graphic designer", "project manager", "business analyst", "customer support", "sales executive", "content writer", "sales"], "base_score": 0.10, "cap": 0.35, "gate_passes": false, "label": "Non-Engineering"}
+    ]
+  },
+  "skills": {
+    "description_boost": 0.30,
+    "proficiency_scores": {"beginner": 0.25, "intermediate": 0.55, "advanced": 0.80, "expert": 1.00},
+    "default_proficiency": "beginner",
+    "max_trust_duration_months": 24,
+    "endorsement_boost_factor": 120,
+    "skill_overrides": {
+      "Python": {"trust_mul": 0.85}
+    },
+    "groups": {
+      "embedding": {
+        "skills": ["sentence-transformers", "BGE", "E5", "dense retrieval", "bi-encoder", "sparse retrieval", "hybrid search", "embedding", "FAISS", "Annoy"],
+        "trust_mul": 0.85,
+        "desc_kw": ["semantic search", "dense retrieval", "embedding index", "bi-encoder", "cross-encoder"],
+        "desc_max": 0.35,
+        "title_max": 0.25,
+        "fallback_group": "vector_db",
+        "fallback_score": 0.10
+      },
+      "vector_db": {
+        "skills": ["Pinecone", "Qdrant", "Weaviate", "Milvus", "Chroma", "Elasticsearch", "OpenSearch", "vector database"],
+        "trust_mul": 0.85,
+        "desc_kw": ["vector database", "ann index", "hybrid search", "sparse+dense", "vector search"],
+        "desc_max": 0.35,
+        "title_max": 0.25,
+        "fallback_group": "embedding",
+        "fallback_score": 0.10
+      },
+      "prod_ml": {
+        "skills": ["PyTorch", "TensorFlow", "scikit-learn", "Hugging Face", "transformers", "Keras", "Langchain", "FastAPI", "Flask", "Docker", "Kubernetes", "CI/CD", "MLOps", "Airflow", "Kubeflow", "GCP", "AWS", "Azure", "Spark", "Python"],
+        "trust_mul": 0.75,
+        "desc_kw": ["deployed", "production", "pipeline", "served", "scalable", "latency", "throughput"],
+        "desc_max": 0.25,
+        "title_max": 0.0,
+        "fallback_group": null,
+        "fallback_score": 0.0
+      },
+      "eval": {
+        "skills": ["A/B testing", "offline evaluation", "ranking evaluation", "evaluation", "metrics", "NDCG", "MRR", "MAP", "learning to rank", "LambdaRank", "recommendation systems", "recommender", "matching", "re-ranking"],
+        "trust_mul": 0.80,
+        "desc_kw": ["evaluation", "offline eval", "ab testing", "a/b testing", "metrics"],
+        "desc_max": 0.30,
+        "title_max": 0.25,
+        "fallback_group": null,
+        "fallback_score": 0.0
+      }
+    }
+  },
+  "career": {
+    "yoe_bands": [
+      {"min": 5, "max": 9, "score": 1.0},
+      {"min": 4, "max": 5, "score": 0.82},
+      {"min": 9, "max": 11, "score": 0.82},
+      {"min": 3, "max": 4, "score": 0.58},
+      {"min": 11, "max": 14, "score": 0.58}
+    ],
+    "default_yoe_score": 0.25,
+    "ai_title_keywords": ["ml engineer", "ai engineer", "machine learning engineer", "ai/ml engineer", "ai research engineer", "applied scientist", "applied ml engineer", "ai specialist", "search engineer", "recommendation engineer", "recommendation systems engineer", "ranking engineer", "matching engineer", "nlp engineer", "computer vision engineer"],
+    "ai_role_bonus_weight": 0.20,
+    "product_bonus_weight": 0.15,
+    "all_services_penalty": 0.20,
+    "min_tenure_for_prod_bonus_months": 12,
+    "trajectory": {
+      "stability_band_min_months": 12,
+      "stability_band_max_months": 48,
+      "stability_bonus": 0.03,
+      "promotion_bonus": 0.05,
+      "switcher_bonus": 0.15,
+      "max_promotion_window_years": 2
+    }
+  },
+  "location": {
+    "country_preference": {"India": 1.0},
+    "default_country_score": 0.30,
+    "preferred_cities": ["noida", "pune", "delhi", "mumbai", "bangalore", "hyderabad", "gurgaon"],
+    "preferred_city_score": 1.0,
+    "no_preferred_city_relocate": 0.85,
+    "no_preferred_city_no_relocate": 0.55,
+    "overseas_relocate": 0.30,
+    "overseas_no_relocate": 0.05
+  },
+  "education": {
+    "tiers": {
+      "tier_1": {"tech": 1.0, "non_tech": 0.60},
+      "tier_2": {"tech": 0.82, "non_tech": 0.62},
+      "tier_3": {"tech": 0.62, "non_tech": 0.42}
+    },
+    "default_score": 0.20,
+    "default_tech_score": 0.42,
+    "default_non_tech_score": 0.28,
+    "tech_fields": ["computer science", "cse", "cs", "it", "ai", "ml", "electronics", "math", "statistics"],
+    "research_degree_bonus": 0.10,
+    "research_keywords": ["phd", "ph.d", "ph.d.", "phd.", "m.s.", "m.s", "masters", "ms", "thesis", "research"],
+    "research_desc_kw": ["published", "paper", "conference", "publication", "neurips", "icml", "iclr", "acl", "cvpr", "research", "thesis"]
+  },
+  "behavioral": {
+    "base": 0.0,
+    "clamp_min": 0.55,
+    "clamp_max": 1.15,
+    "signals": [
+      {"name": "open_to_work", "field": "open_to_work_flag", "type": "boolean", "true_mod": 0.08, "false_mod": -0.20},
+      {"name": "last_active", "field": "last_active_date", "type": "days_since", "bands": [
+        {"max_days": 30, "mod": 0.08},
+        {"min_days": 90, "max_days": 180, "mod": -0.08},
+        {"min_days": 180, "mod": -0.20}
+      ]},
+      {"name": "notice_period", "field": "notice_period_days", "type": "bounded", "default": 60, "bands": [
+        {"max_value": 30, "mod": 0.06},
+        {"min_value": 61, "max_value": 90, "mod": -0.04},
+        {"min_value": 90, "mod": -0.10}
+      ]},
+      {"name": "relocate", "field": "willing_to_relocate", "type": "boolean", "true_mod": 0.04, "false_mod": 0.0},
+      {"name": "verified_contacts", "type": "all_true", "fields": ["verified_email", "verified_phone"], "mod": 0.03},
+      {"name": "work_mode", "field": "preferred_work_mode", "type": "match", "mapping": {"hybrid": 0.02, "flexible": 0.02, "remote": -0.02}}
+    ]
+  },
+  "honeypots": {
+    "rules": [
+      {"id": "HP-1", "enabled": true, "type": "advanced_expert_no_duration", "description": "Skills marked advanced/expert with zero duration months"},
+      {"id": "HP-2", "enabled": true, "type": "yoe_mismatch", "description": "Career duration exceeds stated years of experience", "tolerance_years": 3},
+      {"id": "HP-3a", "enabled": true, "type": "long_role_startup", "description": "Single role >12 years at startup-like company", "max_years": 12, "startup_keywords": ["ai", "tech", "labs", "data", "digital", "soft", "solution", "app"]},
+      {"id": "HP-3b", "enabled": true, "type": "date_overlap", "description": "Overlapping date ranges in non-current roles"},
+      {"id": "HP-4", "enabled": true, "type": "expert_zero_endorsements", "description": "Five or more expert skills with zero endorsements", "min_count": 5},
+      {"id": "HP-5", "enabled": true, "type": "multiple_current_roles", "description": "More than one current role", "max_current": 1},
+      {"id": "HP-6", "enabled": true, "type": "education_yoe_mismatch", "description": "Recent graduation with too many years of experience", "tolerance_years": 2},
+      {"id": "HP-7", "enabled": true, "type": "perfect_score_low_completeness", "description": "Perfect assessment score with low profile completeness", "max_completeness": 30}
+    ]
+  },
+  "semantic": {
+    "enabled": true,
+    "views": {
+      "full_profile": {"weight": 0.40, "enabled": true},
+      "skills": {"weight": 0.25, "enabled": true},
+      "title_headline": {"weight": 0.15, "enabled": true},
+      "char_ngram": {"weight": 0.20, "enabled": true, "analyzer": "char", "ngram_min": 3, "ngram_max": 5, "max_features": 3000, "text_source": "skills_and_headline"}
+    },
+    "tfidf_max_features": 10000,
+    "tfidf_ngram_min": 1,
+    "tfidf_ngram_max": 2,
+    "tfidf_sublinear_tf": true,
+    "tfidf_stop_words": "english",
+    "jd_text": "Senior AI Engineer at Redrob building retrieval and ranking systems for talent matching. Role requires expertise in retrieval/ranking algorithms, recommendation systems, search infrastructure, embedding models (sentence-transformers, BGE, E5, FAISS), vector databases (Pinecone, Qdrant, Weaviate, Milvus, Chroma, Elasticsearch), evaluation metrics (NDCG, MRR, MAP), production ML systems, and Python/ML frameworks (PyTorch, TensorFlow, scikit-learn). Product engineering mindset, building for scale at a product company. Senior AI Engineer retrieval ranking recommendation systems information retrieval embedding models sentence-transformers BGE E5 FAISS vector embeddings vector databases Pinecone Qdrant Weaviate Milvus Chroma Elasticsearch evaluation metrics NDCG MRR MAP precision recall ranking quality production ML Python PyTorch TensorFlow scikit-learn FastAPI semantic search neural search hybrid search cross-encoder bi-encoder candidate matching resume parsing talent discovery search infrastructure sparse retrieval dense retrieval BM25 re-ranking reranking recommender systems product engineering mindset scale"
+  },
+  "reasoning": {
+    "max_evidence_items": 2,
+    "max_concerns": 2
+  },
+  "services_firms": ["Wipro", "TCS", "Infosys", "Accenture", "Cognizant", "Capgemini", "HCL", "Tech Mahindra", "Mphasis", "Mindtree", "L&T Infotech", "Hexaware", "Persistent", "NIIT Technologies", "Mastech"]
+}
