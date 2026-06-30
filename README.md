@@ -1,6 +1,5 @@
 ---
 title: Redrob Candidate Ranker
-emoji: 🏆
 colorFrom: blue
 colorTo: indigo
 sdk: gradio
