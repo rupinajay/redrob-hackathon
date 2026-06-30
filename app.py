@@ -15,277 +15,240 @@ import rank
 
 CONFIG_PATH = Path(__file__).parent / "config.json"
 
-CUSTOM_CSS = """
+# ── Brand palette ──
+# Primary: Indigo (trust, intelligence, tech)
+# Accent: Amber (warmth, energy, action)
+# Surface: White on cool-gray background
+# Text: Dark slate with semantic hierarchy
+
+CSS = """
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  --primary: #1a1a2e;
-  --primary-light: #16213e;
-  --accent: #0f3460;
-  --accent-light: #e94560;
-  --bg: #f8f9fc;
-  --card-bg: #ffffff;
-  --text: #1a1a2e;
-  --text-muted: #6b7280;
-  --border: #e5e7eb;
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-hover: #f8f9fc;
+  --border: #e2e4e9;
+  --border-light: #eef0f4;
+  --primary: #4f46e5;
+  --primary-dark: #3730a3;
+  --primary-light: #eef2ff;
+  --primary-bg: rgba(79, 70, 229, 0.04);
+  --accent: #f59e0b;
+  --accent-bg: #fffbeb;
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
   --success: #059669;
-  --warning: #d97706;
-  --radius: 12px;
-  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+  --success-bg: #ecfdf5;
+  --success-border: #a7f3d0;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 1px rgba(0,0,0,0.02);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.04), 0 2px 4px -1px rgba(0,0,0,0.02);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.04), 0 4px 6px -2px rgba(0,0,0,0.02);
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'SF Mono', 'SFMono-Regular', ui-monospace, monospace;
 }
 
 body {
+  margin: 0; padding: 0;
   background: var(--bg);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
 }
 
 .gradio-container {
-  max-width: 1100px !important;
-  margin: 0 auto !important;
-  padding: 1.5rem 1rem !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
   background: transparent !important;
 }
 
-.app-header {
+/* ── Header ── */
+.hdr {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  padding: 3rem 1.5rem 2.5rem;
   text-align: center;
-  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+.hdr::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(255,255,255,0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
+.hdr h1 {
+  font-size: 2rem; font-weight: 700; color: #fff;
+  letter-spacing: -0.03em; margin: 0 0 0.5rem 0; position: relative;
+}
+.hdr p {
+  font-size: 1rem; color: rgba(255,255,255,0.7); font-weight: 400;
+  margin: 0; position: relative;
 }
 
-.app-title {
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--primary);
-  letter-spacing: -0.02em;
-  margin: 0 0 0.3rem 0;
+/* ── Main ── */
+.mn {
+  max-width: 940px; margin: 0 auto; padding: 1.5rem 1rem 2rem;
 }
 
-.app-subtitle {
-  font-size: 1.05rem;
-  color: var(--text-muted);
-  font-weight: 400;
-  margin: 0;
-}
-
-.card {
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+/* ── Card ── */
+.cd {
+  background: var(--surface);
   border: 1px solid var(--border);
-  padding: 1.5rem;
-  margin-bottom: 1.25rem;
-  transition: box-shadow 0.2s ease;
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+}
+.cd-t {
+  font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin: 0 0 0.75rem 0;
 }
 
-.card:hover {
-  box-shadow: var(--shadow-lg);
+/* ── Upload row ── */
+.upload-r {
+  display: flex; gap: 0.75rem; align-items: stretch;
 }
-
-.card-header {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--primary);
-  margin: 0 0 1rem 0;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border);
+.upload-r .gr-file {
+  flex: 1 !important;
 }
-
-.card-header small {
-  font-weight: 400;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-.upload-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.upload-area {
+.upload-r .gr-file label {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   border: 2px dashed var(--border) !important;
-  border-radius: var(--radius) !important;
-  padding: 1.5rem !important;
-  text-align: center !important;
-  transition: all 0.2s ease !important;
-  background: #fafbfc !important;
-}
-
-.upload-area:hover {
-  border-color: var(--accent) !important;
-  background: #f0f4ff !important;
-}
-
-.upload-area label {
-  font-weight: 500 !important;
-  color: var(--text) !important;
-  font-size: 0.95rem !important;
-}
-
-.run-btn {
-  background: var(--primary) !important;
-  border: none !important;
-  border-radius: 8px !important;
-  padding: 0.65rem 1.5rem !important;
-  font-weight: 600 !important;
-  font-size: 0.95rem !important;
-  color: white !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 1.5rem 1rem !important;
+  margin: 0 !important;
+  background: var(--surface) !important;
   cursor: pointer !important;
-  transition: all 0.2s ease !important;
-  letter-spacing: 0.01em !important;
-}
-
-.run-btn:hover {
-  background: var(--accent) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 4px 12px rgba(15, 52, 96, 0.3) !important;
-}
-
-.summary-box {
-  border-radius: 8px !important;
-  border: 1px solid var(--border) !important;
-  background: #f0fdf4 !important;
-  font-size: 0.9rem !important;
-}
-
-.summary-box label {
-  font-weight: 600 !important;
-  color: var(--success) !important;
-}
-
-.results-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.88rem;
-}
-
-.results-table thead th {
-  background: var(--primary);
-  color: white;
-  padding: 10px 14px;
-  text-align: left;
-  font-weight: 600;
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.results-table thead th:first-child {
-  border-radius: 6px 0 0 0;
-}
-
-.results-table thead th:last-child {
-  border-radius: 0 6px 0 0;
-}
-
-.results-table tbody tr {
-  border-bottom: 1px solid #f0f0f0;
-  transition: background 0.15s ease;
-}
-
-.results-table tbody tr:hover {
-  background: #f5f7ff;
-}
-
-.results-table tbody tr:nth-child(even) {
-  background: #fafbfc;
-}
-
-.results-table tbody tr:nth-child(even):hover {
-  background: #f0f4ff;
-}
-
-.results-table tbody td {
-  padding: 10px 14px;
-  vertical-align: top;
-  color: var(--text);
-}
-
-.rank-cell {
-  font-weight: 700;
-  color: var(--accent);
-  width: 50px;
-}
-
-.id-cell {
-  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
-  font-size: 0.82rem;
-  color: var(--accent);
-  width: 130px;
-}
-
-.score-cell {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--primary);
-  width: 90px;
-}
-
-.reasoning-cell {
-  font-size: 0.84rem;
-  line-height: 1.45;
-  color: var(--text);
-}
-
-.download-btn {
-  background: var(--success) !important;
-  border: none !important;
-  border-radius: 8px !important;
+  transition: all 0.15s ease !important;
+  min-height: 48px !important;
+  font-size: 0.88rem !important;
   font-weight: 500 !important;
-  color: white !important;
-  transition: all 0.2s ease !important;
+  color: var(--text-secondary) !important;
+}
+.upload-r .gr-file label:hover {
+  border-color: var(--primary) !important;
+  background: var(--primary-light) !important;
+  color: var(--primary) !important;
+}
+.upload-r .gr-file input { display: none !important; }
+
+.run-btn-wrap button {
+  height: 100% !important;
+  min-height: 48px !important;
+  padding: 0 1.5rem !important;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+  border: none !important;
+  border-radius: var(--radius-sm) !important;
+  color: #fff !important;
+  font-family: var(--font) !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
+  box-shadow: 0 2px 8px rgba(79,70,229,0.25) !important;
+}
+.run-btn-wrap button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79,70,229,0.35) !important;
 }
 
-.download-btn:hover {
-  filter: brightness(1.1) !important;
-  transform: translateY(-1px) !important;
-}
-
-.app-footer {
-  text-align: center;
-  padding: 1.5rem 0 0.5rem;
-  border-top: 1px solid var(--border);
-  margin-top: 1.5rem;
-}
-
-.footer-text {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
-.footer-text a {
-  color: var(--accent);
-  text-decoration: none;
+/* ── Summary ── */
+.sm {
+  padding: 0.75rem 1rem;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-sm);
+  color: #065f46;
+  font-size: 0.88rem;
   font-weight: 500;
 }
 
-.footer-text a:hover {
-  text-decoration: underline;
+/* ── Results table ── */
+.tw {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.rt {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.rt thead th {
+  background: #f8f9fc;
+  color: var(--text-secondary);
+  font-size: 0.7rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 9px 12px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.rt tbody tr {
+  border-bottom: 1px solid var(--border-light);
+  transition: background 0.1s;
+}
+.rt tbody tr:last-child { border-bottom: none; }
+.rt tbody tr:hover { background: var(--primary-bg); }
+.rt tbody td { padding: 9px 12px; vertical-align: top; }
+.rt td.r { font-weight: 700; color: var(--primary); }
+.rt td.i { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); }
+.rt td.s { font-weight: 600; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text); }
+.rt td.rs { font-size: 0.82rem; line-height: 1.5; color: var(--text-secondary); }
+
+/* ── Download ── */
+.dl-r {
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.dl-r label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.4rem !important;
+  padding: 0.5rem 1.1rem !important;
+  background: var(--primary) !important;
+  border: none !important;
+  border-radius: var(--radius-sm) !important;
+  color: #fff !important;
+  font-family: var(--font) !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  margin: 0 !important;
+}
+.dl-r label:hover {
+  background: var(--primary-dark) !important;
+  transform: translateY(-1px);
 }
 
-@media (max-width: 640px) {
-  .app-title { font-size: 1.6rem; }
-  .card { padding: 1rem; }
+/* ── Footer ── */
+.ft {
+  text-align: center; padding: 1.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.78rem; color: var(--text-muted);
 }
+.ft a { color: var(--primary); text-decoration: none; font-weight: 500; }
+.ft a:hover { text-decoration: underline; }
 """
 
 
 def rank_candidates(file_bytes):
     cfg = rank.load_config(str(CONFIG_PATH))
-
     try:
         text = file_bytes.decode("utf-8")
         candidates = [json.loads(line) for line in text.splitlines() if line.strip()]
     except Exception as e:
-        return f"Error parsing candidates.jsonl: {e}", None, None, None
-
-    if len(candidates) == 0:
-        return "No candidates found in file.", None, None, None
+        return f"Error: {e}", "", ""
+    if not candidates:
+        return "No candidates found.", "", ""
 
     tfidf = rank.compute_tfidf_scores(candidates, cfg)
-
-    out, all_scored = rank.rank_candidates(candidates, cfg, tfidf)
+    out, _ = rank.rank_candidates(candidates, cfg, tfidf)
 
     buf = io.StringIO()
     w = csv.writer(buf)
@@ -301,110 +264,110 @@ def rank_candidates(file_bytes):
         top_titles[t] = top_titles.get(t, 0) + 1
     top_role = max(top_titles, key=top_titles.get) if top_titles else "N/A"
 
-    summary = (
-        f"Processed {len(candidates)} candidates. "
-        f"Score range: {scores[-1]:.4f} - {scores[0]:.4f}. "
-        f"Unique scores: {len(set(scores))}. "
-        f"Top role represented: {top_role} ({top_titles[top_role]} of 100)."
+    stats = (
+        f"{len(candidates)} candidates processed  ·  "
+        f"Score range {scores[-1]:.4f} - {scores[0]:.4f}  ·  "
+        f"{len(set(scores))} unique scores  ·  "
+        f"Top role: {top_role} ({top_titles.get(top_role, 0)}x)"
     )
 
-    html_rows = ""
+    rows = ""
     for r in out[:20]:
-        reason = r["reasoning"][:150]
-        rank_class = "rank-cell"
-        if r["rank"] <= 3:
-            rank_class += " medal"
-        html_rows += (
-            f"<tr>"
-            f"<td class='rank-cell'>{r['rank']}</td>"
-            f"<td class='id-cell'>{r['candidate_id']}</td>"
-            f"<td class='score-cell'>{r['score']:.6f}</td>"
-            f"<td class='reasoning-cell'>{reason}</td>"
-            f"</tr>"
+        rows += (
+            f"<tr><td class='r'>{r['rank']}</td>"
+            f"<td class='i'>{r['candidate_id']}</td>"
+            f"<td class='s'>{r['score']:.6f}</td>"
+            f"<td class='rs'>{r['reasoning'][:160]}</td></tr>"
         )
+    table = (
+        '<div class="tw"><table class="rt"><thead><tr>'
+        '<th style="width:52px">Rank</th><th style="width:130px">Candidate</th>'
+        '<th style="width:92px">Score</th><th>Reasoning</th>'
+        "</tr></thead><tbody>" + rows + "</tbody></table></div>"
+    )
 
-    html_table = f"""<div class='card' style='padding:0;overflow:hidden'>
-    <div style='max-height:520px;overflow-y:auto'>
-    <table class='results-table'>
-    <thead><tr>
-    <th>Rank</th><th>Candidate ID</th><th>Score</th><th>Reasoning</th>
-    </tr></thead>
-    <tbody>{html_rows}</tbody>
-    </table></div></div>"""
-
-    return summary, csv_text, html_table, candidates
+    return stats, table, csv_text
 
 
 with gr.Blocks(
     title="Redrob Candidate Ranker",
-    theme=gr.themes.Soft(),
-    css=CUSTOM_CSS,
+    fill_height=True,
 ) as demo:
+    # Header
     gr.HTML(
-        """
-    <div class='app-header'>
-      <h1 class='app-title'>Redrob Candidate Ranker</h1>
-      <p class='app-subtitle'>Upload a candidates.jsonl file to rank the top 100 candidates for the Senior AI Engineer role.</p>
-    </div>
-    """
+        '<div class="hdr"><h1>Redrob Candidate Ranker</h1>'
+        "<p>Upload candidates.jsonl to rank the top 100 for the Senior AI Engineer role.</p></div>"
     )
 
-    with gr.Column():
-        with gr.Column(elem_classes="card"):
-            gr.HTML("<div class='card-header'>Upload Candidates</div>")
-            with gr.Row():
-                file_input = gr.File(label="", file_types=[".jsonl"], elem_classes="upload-area")
-                run_btn = gr.Button("Rank Candidates", variant="primary", size="lg", elem_classes="run-btn")
+    gr.HTML('<div class="mn">')
 
-        summary = gr.Textbox(
-            label="",
-            lines=2,
-            interactive=False,
-            elem_classes="summary-box",
-            show_label=False,
-        )
-
-        results_table = gr.HTML("", visible=True)
-
-        with gr.Column(elem_classes="card"):
-            gr.HTML("<div class='card-header'>Download Full Results</div>")
-            download = gr.File(
+    # Upload card
+    with gr.Column(elem_classes="cd"):
+        gr.HTML('<div class="cd-t">Upload candidates</div>')
+        with gr.Row(elem_classes="upload-r"):
+            file_input = gr.File(
                 label="",
-                interactive=False,
                 show_label=False,
-                elem_classes="download-btn",
+                file_types=[".jsonl"],
+                scale=4,
+            )
+            run_btn = gr.Button(
+                "Rank Candidates",
+                variant="primary",
+                elem_classes="run-btn-wrap",
+                scale=1,
             )
 
-    all_candidates_state = gr.State()
+    # Summary (hidden until results come)
+    summary_html = gr.HTML('<div class="sm">Awaiting upload...</div>')
+
+    # Results table (hidden initially)
+    results_html = gr.HTML("")
+
+    # Download card (hidden until results come)
+    with gr.Column(elem_classes="cd", visible=False) as dl_card:
+        gr.HTML('<div class="cd-t">Download results</div>')
+        with gr.Row(elem_classes="dl-r"):
+            gr.HTML(
+                '<span style="font-size:0.88rem;color:var(--text-secondary);flex:1">'
+                "Full submission.csv — all 100 ranked candidates.</span>"
+            )
+            download_btn = gr.File(
+                label="Download submission.csv",
+                show_label=False,
+                file_types=[".csv"],
+                interactive=False,
+            )
+
+    gr.HTML("</div>")
+
+    # Footer
+    gr.HTML(
+        '<div class="ft">'
+        "CPU-only  ·  No GPU  ·  ~30s per 100K candidates  ·  "
+        '<a href="https://github.com/rupinajay/redrob-hackathon" target="_blank">GitHub</a>'
+        "</div>"
+    )
 
     def process(file):
         if file is None:
-            return "Please upload a candidates.jsonl file to begin.", None, None, None
+            sm = '<div class="sm">Upload a candidates.jsonl file to begin.</div>'
+            return sm, "", gr.update(visible=False), None
         with open(file.name, "rb") as f:
             data = f.read()
-        summary, csv_text, html_table, candidates = rank_candidates(data)
+        stats, table, csv_text = rank_candidates(data)
+        sm = f'<div class="sm">{stats}</div>'
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w")
         tmp.write(csv_text)
         tmp.close()
-        return summary, html_table, tmp.name, candidates
+        return sm, table, gr.update(visible=True), tmp.name
 
     run_btn.click(
         fn=process,
         inputs=[file_input],
-        outputs=[summary, results_table, download, all_candidates_state],
-    )
-
-    gr.HTML(
-        """
-    <div class='app-footer'>
-      <p class='footer-text'>
-        CPU-only &middot; No GPU required &middot; Runtime ~30s per 100K candidates &middot;
-        <a href='https://github.com/rupinajay/redrob-hackathon' target='_blank'>GitHub</a>
-      </p>
-    </div>
-    """
+        outputs=[summary_html, results_html, dl_card, download_btn],
     )
 
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(css=CSS, theme=gr.themes.Soft())
