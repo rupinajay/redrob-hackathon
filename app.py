@@ -230,6 +230,20 @@ body {
 .ft a { color: var(--primary); text-decoration: none; font-weight: 500; }
 .ft a:hover { text-decoration: underline; }
 
+/* ── Gradio progress bar (make it visible on dark) ── */
+.progress-bar {
+  height: 8px !important;
+  background: #1f1f1f !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+.progress-level {
+  height: 8px !important;
+  background: linear-gradient(90deg, #6366f1, #818cf8) !important;
+  border-radius: 4px !important;
+  transition: width 0.3s ease !important;
+}
+
 /* ── Gradio overrides ── */
 .gr-box, .wrap, .panel, .form, .input-wrap, .output-wrap {
   background: var(--surface) !important;
@@ -248,6 +262,26 @@ label, .label-text {
   color: var(--text) !important;
 }
 """
+
+
+def _build_view_texts(vname, vcfg, candidates):
+    if vname == "full_profile":
+        return [rank._build_profile_text(c) for c in candidates]
+    elif vname == "skills":
+        return [" ".join(s.get("name", "") for s in c.get("skills", [])) for c in candidates]
+    elif vname == "title_headline":
+        return [f"{c.get('profile', {}).get('current_title', '')} {c.get('profile', {}).get('headline', '')}" for c in candidates]
+    elif vname == "char_ngram":
+        source = vcfg.get("text_source", "full_profile")
+        if source == "skills_and_headline":
+            return [
+                " ".join(s.get("name", "") for s in c.get("skills", []))
+                + " " + c.get("profile", {}).get("current_title", "")
+                + " " + c.get("profile", {}).get("headline", "")
+                for c in candidates
+            ]
+        return [rank._build_profile_text(c) for c in candidates]
+    return None
 
 
 def _prog(pct, text):
@@ -406,7 +440,7 @@ with gr.Blocks(
         "</div>"
     )
 
-    def process(file):
+    def process(file, progress=gr.Progress(track_tqdm=True)):
         if file is None:
             yield _prog(0, "Upload a candidates.jsonl file to begin."), "", gr.update(visible=False), None
             return
@@ -415,6 +449,7 @@ with gr.Blocks(
         with open(path, "rb") as f:
             data = f.read()
 
+        progress(0.02, desc="Loaded file, parsing...")
         yield _prog(5, "File loaded, parsing candidates..."), "", gr.update(visible=False), None
 
         cfg = rank.load_config(str(CONFIG_PATH))
@@ -428,14 +463,39 @@ with gr.Blocks(
             yield _prog(0, "No candidates found."), "", gr.update(visible=False), None
             return
 
+        progress(0.05, desc=f"Loaded {len(candidates):,} candidates")
         yield _prog(10, f"Loaded {len(candidates):,} candidates, computing TF-IDF..."), "", gr.update(visible=False), None
 
-        tfidf = rank.compute_tfidf_scores(candidates, cfg)
+        # Compute TF-IDF with per-view progress
+        views = cfg["semantic"].get("views", {})
+        active_views = [(vn, vc) for vn, vc in views.items() if vc.get("enabled", True)]
+        nv = len(active_views)
+        blended = None
+        if nv > 0:
+            # Build view texts once (cheap)
+            texts_by_view = {}
+            for vname, vcfg in active_views:
+                texts_by_view[vname] = _build_view_texts(vname, vcfg, candidates)
+            for vi, (vname, vcfg) in enumerate(active_views):
+                pct = 0.1 + (vi / nv) * 0.45
+                progress(pct, desc=f"TF-IDF: {vname}...")
+                yield _prog(int(pct * 100), f"TF-IDF: {vname} ({vi+1}/{nv})..."), "", gr.update(visible=False), None
+                view_scores = rank.compute_tfidf_view(
+                    candidates, cfg, vname, vcfg, texts_by_view.get(vname)
+                )
+                wt = vcfg.get("weight", 1.0)
+                if blended is None:
+                    blended = view_scores * wt
+                else:
+                    blended += view_scores * wt
+        tfidf_scores = blended if blended is not None else np.zeros(len(candidates))
 
+        progress(0.6, desc="Ranking candidates...")
         yield _prog(60, "TF-IDF complete, ranking candidates..."), "", gr.update(visible=False), None
 
-        out, _ = rank.rank_candidates(candidates, cfg, tfidf)
+        out, _ = rank.rank_candidates(candidates, cfg, tfidf_scores)
 
+        progress(0.85, desc="Building output...")
         yield _prog(90, "Building output..."), "", gr.update(visible=False), None
 
         stats, table, csv_text = _build_output(candidates, out)
@@ -444,6 +504,7 @@ with gr.Blocks(
         tmp.write(csv_text)
         tmp.close()
 
+        progress(1.0, desc="Complete")
         yield _prog(100, f"Done! {stats}"), table, gr.update(visible=True), tmp.name
 
     file_input.upload(
@@ -454,4 +515,4 @@ with gr.Blocks(
 
 
 if __name__ == "__main__":
-    demo.launch(css=CSS, theme=gr.themes.Soft(primary_hue=gr.themes.colors.indigo, neutral_hue=gr.themes.colors.gray, radius_size=gr.themes.sizes.radius_sm))
+    demo.queue().launch(css=CSS, theme=gr.themes.Soft(primary_hue=gr.themes.colors.indigo, neutral_hue=gr.themes.colors.gray, radius_size=gr.themes.sizes.radius_sm))

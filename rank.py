@@ -633,6 +633,47 @@ def compute_tfidf_scores(candidates, cfg, progress=None):
     return blended
 
 
+def compute_tfidf_view(candidates, cfg, vname, vcfg, texts=None):
+    """Compute TF-IDF scores for a single view. Returns ndarray of scores."""
+    sem = cfg["semantic"]
+    jd_text = sem["jd_text"]
+    if texts is None:
+        if vname == "full_profile":
+            texts = [_build_profile_text(c) for c in candidates]
+        elif vname == "skills":
+            texts = [" ".join(s.get("name", "") for s in c.get("skills", [])) for c in candidates]
+        elif vname == "title_headline":
+            texts = [f"{c.get('profile', {}).get('current_title', '')} {c.get('profile', {}).get('headline', '')}" for c in candidates]
+        elif vname == "char_ngram":
+            source = vcfg.get("text_source", "full_profile")
+            if source == "skills_and_headline":
+                texts = [
+                    " ".join(s.get("name", "") for s in c.get("skills", []))
+                    + " " + c.get("profile", {}).get("current_title", "")
+                    + " " + c.get("profile", {}).get("headline", "")
+                    for c in candidates
+                ]
+            else:
+                texts = [_build_profile_text(c) for c in candidates]
+        else:
+            return np.zeros(len(candidates))
+    kw = {}
+    if vcfg.get("analyzer") == "char":
+        kw["analyzer"] = "char"
+        kw["ngram_range"] = (vcfg.get("ngram_min", 3), vcfg.get("ngram_max", 6))
+        kw["max_features"] = vcfg.get("max_features", sem["tfidf_max_features"])
+        kw["sublinear_tf"] = False
+    else:
+        kw["ngram_range"] = (sem["tfidf_ngram_min"], sem["tfidf_ngram_max"])
+        kw["max_features"] = sem["tfidf_max_features"]
+        kw["stop_words"] = sem.get("tfidf_stop_words", "english")
+        kw["sublinear_tf"] = sem.get("tfidf_sublinear_tf", True)
+    vec = TfidfVectorizer(**kw)
+    all_t = [jd_text] + texts
+    tfidf = vec.fit_transform(all_t)
+    return cosine_similarity(tfidf[0:1], tfidf[1:])[0]
+
+
 def _build_profile_text(c):
     p = c.get("profile", {})
     parts = [p.get("current_title", ""), p.get("headline", ""), p.get("summary", "")]
