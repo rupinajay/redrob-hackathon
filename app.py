@@ -104,39 +104,36 @@ body {
   margin: 0 0 0.75rem 0;
 }
 
-/* ── Upload row ── */
-.upload-r {
-  display: flex; gap: 0.75rem; align-items: stretch;
+/* ── Upload ── */
+.up-btn {
+  width: 100% !important;
 }
-.upload-r .gr-file {
-  flex: 1 !important;
-}
-.upload-r .gr-file label {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+.up-btn button {
+  width: 100% !important;
   border: 2px dashed var(--border) !important;
   border-radius: var(--radius-sm) !important;
-  padding: 1.5rem 1rem !important;
-  margin: 0 !important;
+  padding: 1.75rem 1rem !important;
   background: var(--surface) !important;
+  color: var(--text-muted) !important;
   cursor: pointer !important;
   transition: all 0.15s ease !important;
-  min-height: 48px !important;
+  font-family: var(--font) !important;
   font-size: 0.88rem !important;
   font-weight: 500 !important;
-  color: var(--text-muted) !important;
+  box-shadow: none !important;
 }
-.upload-r .gr-file label:hover {
+.up-btn button:hover {
   border-color: var(--primary) !important;
   background: var(--primary-light) !important;
   color: var(--primary) !important;
 }
-.upload-r .gr-file input { display: none !important; }
 
-.run-btn-wrap button {
-  height: 100% !important;
-  min-height: 48px !important;
+.run-btn {
+  margin-top: 0.5rem;
+}
+.run-btn button {
+  width: 100% !important;
+  min-height: 44px !important;
   padding: 0 1.5rem !important;
   background: linear-gradient(135deg, #6366f1, #818cf8) !important;
   border: none !important;
@@ -146,11 +143,10 @@ body {
   font-size: 0.88rem !important;
   font-weight: 600 !important;
   cursor: pointer !important;
-  white-space: nowrap !important;
   transition: all 0.15s ease !important;
   box-shadow: 0 2px 8px rgba(99,102,241,0.3) !important;
 }
-.run-btn-wrap button:hover {
+.run-btn button:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(99,102,241,0.5) !important;
 }
@@ -317,19 +313,18 @@ with gr.Blocks(
     # Upload card
     with gr.Column(elem_classes="cd"):
         gr.HTML('<div class="cd-t">Upload candidates</div>')
-        with gr.Row(elem_classes="upload-r"):
-            file_input = gr.File(
-                label="",
-                show_label=False,
-                file_types=[".jsonl"],
-                scale=4,
-            )
-            run_btn = gr.Button(
-                "Rank Candidates",
-                variant="primary",
-                elem_classes="run-btn-wrap",
-                scale=1,
-            )
+        file_input = gr.UploadButton(
+            "Click to upload candidates.jsonl",
+            file_types=[".jsonl"],
+            file_count="single",
+            variant="secondary",
+            elem_classes="up-btn",
+        )
+        run_btn = gr.Button(
+            "Rank Candidates",
+            variant="primary",
+            elem_classes="run-btn",
+        )
 
     # Summary (hidden until results come)
     summary_html = gr.HTML('<div class="sm">Awaiting upload...</div>')
