@@ -601,13 +601,14 @@ def compute_tfidf_scores(candidates, cfg, progress=None):
 
     active = [(vn, vc) for vn, vc in views.items() if vc.get("enabled", True)]
     blended = np.zeros(n)
-    for vi, (vname, vcfg) in enumerate(active):
+    view_iter = active
+    if progress:
+        view_iter = progress.tqdm(active, desc="TF-IDF", unit="view")
+    for vname, vcfg in view_iter:
         weight = vcfg.get("weight", 1.0)
         texts = build_view_texts(vname, vcfg)
         if texts is None:
             continue
-        if progress:
-            progress(0.1 + (vi / len(active)) * 0.4, desc=f"TF-IDF: {vname}...")
 
         kw = {}
         if vcfg.get("analyzer") == "char":
@@ -717,8 +718,10 @@ def rank_candidates(candidates, cfg, tfidf_scores, progress=None):
     arch = cfg["archetype"]
     results = []
 
-    n = len(candidates)
-    for i, c in enumerate(candidates):
+    cand_iter = candidates
+    if progress:
+        cand_iter = progress.tqdm(candidates, desc="Scoring", unit="cand")
+    for i, c in enumerate(cand_iter):
         if detect_honeypots(c, cfg):
             continue
 
@@ -749,9 +752,6 @@ def rank_candidates(candidates, cfg, tfidf_scores, progress=None):
             evidence_factor = min(1.0, score_b * 2.0 + score_f * 3.0)
             soft_cap = base_score + (tier_cap - base_score) * evidence_factor * arch.get("soft_cap_factor", 0.5)
             final = min(final, soft_cap)
-
-        if progress and i % 1000 == 0:
-            progress(0.5 + (i / n) * 0.4, desc=f"Scoring candidates ({i:,}/{n:,})...")
 
         results.append({
             "candidate_id": c["candidate_id"],

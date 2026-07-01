@@ -5,6 +5,7 @@ import csv
 import io
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import gradio as gr
@@ -23,34 +24,17 @@ CSS = """
   --surface: #0a0a0a;
   --surface-hover: #111111;
   --border: #1f1f1f;
-  --border-light: #181818;
   --primary: #818cf8;
-  --primary-dark: #6366f1;
-  --primary-light: #1e1b4b;
-  --primary-bg: rgba(129, 140, 248, 0.06);
-  --accent: #f59e0b;
-  --accent-bg: #1c1500;
   --text: #e2e8f0;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
-  --success: #34d399;
-  --success-bg: #052e16;
-  --success-border: #166534;
-  --radius: 10px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 2px rgba(0,0,0,0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.3);
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'SF Mono', 'SFMono-Regular', ui-monospace, monospace;
 }
 
 body {
   margin: 0; padding: 0;
   background: var(--bg) !important;
-  font-family: var(--font);
+  font-family: 'Inter', sans-serif;
   color: var(--text);
-  -webkit-font-smoothing: antialiased;
 }
 
 .gradio-container {
@@ -60,43 +44,30 @@ body {
   background: var(--bg) !important;
 }
 
-/* ── Header ── */
 .hdr {
   background: linear-gradient(135deg, #1e1b4b 0%, #0f0f0f 100%);
   padding: 3rem 1.5rem 2.5rem;
   text-align: center;
-  position: relative;
-  overflow: hidden;
   border-bottom: 1px solid var(--border);
-}
-.hdr::after {
-  content: '';
-  position: absolute; inset: 0;
-  background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(129,140,248,0.06) 0%, transparent 60%);
-  pointer-events: none;
 }
 .hdr h1 {
   font-size: 2rem; font-weight: 700; color: var(--primary);
-  letter-spacing: -0.03em; margin: 0 0 0.5rem 0; position: relative;
+  letter-spacing: -0.03em; margin: 0 0 0.5rem 0;
 }
 .hdr p {
-  font-size: 1rem; color: var(--text-muted); font-weight: 400;
-  margin: 0; position: relative;
+  font-size: 1rem; color: var(--text-muted); margin: 0;
 }
 
-/* ── Main ── */
 .mn {
   max-width: 940px; margin: 0 auto; padding: 1.5rem 1rem 2rem;
 }
 
-/* ── Card ── */
 .cd {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 10px;
   padding: 1.25rem 1.5rem;
   margin-bottom: 1rem;
-  box-shadow: var(--shadow);
 }
 .cd-t {
   font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
@@ -104,72 +75,42 @@ body {
   margin: 0 0 0.75rem 0;
 }
 
-/* ── Upload ── */
-.up-btn {
-  width: 100% !important;
-}
+.up-btn { width: 100% !important; }
 .up-btn button {
   width: 100% !important;
   border: 2px dashed var(--border) !important;
-  border-radius: var(--radius-sm) !important;
+  border-radius: 6px !important;
   padding: 1.75rem 1rem !important;
   background: var(--surface) !important;
   color: var(--text-muted) !important;
-  cursor: pointer !important;
-  transition: all 0.15s ease !important;
-  font-family: var(--font) !important;
+  font-family: 'Inter', sans-serif !important;
   font-size: 0.88rem !important;
   font-weight: 500 !important;
-  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
 }
 .up-btn button:hover {
   border-color: var(--primary) !important;
-  background: var(--primary-light) !important;
   color: var(--primary) !important;
 }
 
-/* ── Progress bar ── */
-.pc {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.85rem 1rem;
-  margin-bottom: 1rem;
-  background: var(--surface);
+.ft {
+  text-align: center; padding: 1.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.78rem; color: var(--text-muted);
 }
-.pt {
-  height: 8px;
-  background: #1f1f1f;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 0.5rem;
-}
-.pf {
-  height: 100%;
-  background: linear-gradient(90deg, #6366f1, #818cf8);
-  border-radius: 4px;
-  transition: width 0.4s ease;
-}
-.ps {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
+.ft a { color: var(--primary); text-decoration: none; font-weight: 500; }
 
-/* ── Summary ── */
-.sm {
-  padding: 0.75rem 1rem;
-  background: var(--success-bg);
-  border: 1px solid var(--success-border);
-  border-radius: var(--radius-sm);
-  color: var(--success);
-  font-size: 0.88rem;
-  font-weight: 500;
+/* ── Progress bar ── */
+progress, .progress-level {
+  height: 8px !important;
+  border-radius: 4px !important;
 }
 
 /* ── Results table ── */
 .tw {
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   overflow: hidden;
 }
 .rt {
@@ -185,205 +126,15 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .rt tbody tr {
-  border-bottom: 1px solid var(--border-light);
-  transition: background 0.1s;
+  border-bottom: 1px solid var(--surface-hover);
 }
 .rt tbody tr:last-child { border-bottom: none; }
-.rt tbody tr:hover { background: var(--primary-bg); }
 .rt tbody td { padding: 9px 12px; vertical-align: top; }
 .rt td.r { font-weight: 700; color: var(--primary); }
-.rt td.i { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); }
-.rt td.s { font-weight: 600; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text); }
+.rt td.i { font-family: 'SF Mono', monospace; font-size: 0.78rem; color: var(--text-muted); }
+.rt td.s { font-weight: 600; font-family: 'SF Mono', monospace; font-size: 0.8rem; color: var(--text); }
 .rt td.rs { font-size: 0.82rem; line-height: 1.5; color: var(--text-secondary); }
-
-/* ── Download ── */
-.dl-r {
-  display: flex; align-items: center; gap: 0.75rem;
-}
-.dl-r label {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 0.4rem !important;
-  padding: 0.5rem 1.1rem !important;
-  background: var(--primary) !important;
-  border: none !important;
-  border-radius: var(--radius-sm) !important;
-  color: #000 !important;
-  font-family: var(--font) !important;
-  font-size: 0.85rem !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  transition: all 0.15s ease !important;
-  margin: 0 !important;
-}
-.dl-r label:hover {
-  background: var(--primary-dark) !important;
-  transform: translateY(-1px);
-}
-
-/* ── Footer ── */
-.ft {
-  text-align: center; padding: 1.5rem;
-  border-top: 1px solid var(--border);
-  font-size: 0.78rem; color: var(--text-muted);
-}
-.ft a { color: var(--primary); text-decoration: none; font-weight: 500; }
-.ft a:hover { text-decoration: underline; }
-
-/* ── Gradio progress bar (make it visible on dark) ── */
-.progress-bar {
-  height: 8px !important;
-  background: #1f1f1f !important;
-  border-radius: 4px !important;
-  overflow: hidden !important;
-}
-.progress-level {
-  height: 8px !important;
-  background: linear-gradient(90deg, #6366f1, #818cf8) !important;
-  border-radius: 4px !important;
-  transition: width 0.3s ease !important;
-}
-
-/* ── Gradio overrides ── */
-.gr-box, .wrap, .panel, .form, .input-wrap, .output-wrap {
-  background: var(--surface) !important;
-  border-color: var(--border) !important;
-  color: var(--text) !important;
-}
-input, textarea, select {
-  background: var(--surface) !important;
-  border-color: var(--border) !important;
-  color: var(--text) !important;
-}
-label, .label-text {
-  color: var(--text-secondary) !important;
-}
-.prose, .markdown {
-  color: var(--text) !important;
-}
 """
-
-
-def _build_view_texts(vname, vcfg, candidates):
-    if vname == "full_profile":
-        return [rank._build_profile_text(c) for c in candidates]
-    elif vname == "skills":
-        return [" ".join(s.get("name", "") for s in c.get("skills", [])) for c in candidates]
-    elif vname == "title_headline":
-        return [f"{c.get('profile', {}).get('current_title', '')} {c.get('profile', {}).get('headline', '')}" for c in candidates]
-    elif vname == "char_ngram":
-        source = vcfg.get("text_source", "full_profile")
-        if source == "skills_and_headline":
-            return [
-                " ".join(s.get("name", "") for s in c.get("skills", []))
-                + " " + c.get("profile", {}).get("current_title", "")
-                + " " + c.get("profile", {}).get("headline", "")
-                for c in candidates
-            ]
-        return [rank._build_profile_text(c) for c in candidates]
-    return None
-
-
-def _prog(pct, text):
-    return (
-        '<div class="pc">'
-        f'<div class="pt"><div class="pf" style="width:{pct}%"></div></div>'
-        f'<div class="ps">{text}</div>'
-        "</div>"
-    )
-
-
-def _build_output(candidates, out):
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(["candidate_id", "rank", "score", "reasoning"])
-    for r in out:
-        w.writerow([r["candidate_id"], r["rank"], r["score"], r["reasoning"]])
-    csv_text = buf.getvalue()
-
-    scores = [r["score"] for r in out]
-    top_titles = {}
-    for r in out:
-        t = r["reasoning"].split(" with ")[0].strip() if " with " in r["reasoning"] else ""
-        top_titles[t] = top_titles.get(t, 0) + 1
-    top_role = max(top_titles, key=top_titles.get) if top_titles else "N/A"
-
-    stats = (
-        f"{len(candidates)} candidates processed  ·  "
-        f"Score range {scores[-1]:.4f} - {scores[0]:.4f}  ·  "
-        f"{len(set(scores))} unique scores  ·  "
-        f"Top role: {top_role} ({top_titles.get(top_role, 0)}x)"
-    )
-
-    rows = ""
-    for r in out[:20]:
-        rows += (
-            f"<tr><td class='r'>{r['rank']}</td>"
-            f"<td class='i'>{r['candidate_id']}</td>"
-            f"<td class='s'>{r['score']:.6f}</td>"
-            f"<td class='rs'>{r['reasoning'][:160]}</td></tr>"
-        )
-    table = (
-        '<div class="tw"><table class="rt"><thead><tr>'
-        '<th style="width:52px">Rank</th><th style="width:130px">Candidate</th>'
-        '<th style="width:92px">Score</th><th>Reasoning</th>'
-        "</tr></thead><tbody>" + rows + "</tbody></table></div>"
-    )
-
-    return stats, table, csv_text
-
-
-def rank_candidates(file_bytes):
-    cfg = rank.load_config(str(CONFIG_PATH))
-    try:
-        text = file_bytes.decode("utf-8")
-        candidates = [json.loads(line) for line in text.splitlines() if line.strip()]
-    except Exception as e:
-        return f"Error: {e}", "", ""
-    if not candidates:
-        return "No candidates found.", "", ""
-
-    n = len(candidates)
-    tfidf = rank.compute_tfidf_scores(candidates, cfg)
-    out, _ = rank.rank_candidates(candidates, cfg, tfidf)
-
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(["candidate_id", "rank", "score", "reasoning"])
-    for r in out:
-        w.writerow([r["candidate_id"], r["rank"], r["score"], r["reasoning"]])
-    csv_text = buf.getvalue()
-
-    scores = [r["score"] for r in out]
-    top_titles = {}
-    for r in out:
-        t = r["reasoning"].split(" with ")[0].strip() if " with " in r["reasoning"] else ""
-        top_titles[t] = top_titles.get(t, 0) + 1
-    top_role = max(top_titles, key=top_titles.get) if top_titles else "N/A"
-
-    stats = (
-        f"{len(candidates)} candidates processed  ·  "
-        f"Score range {scores[-1]:.4f} - {scores[0]:.4f}  ·  "
-        f"{len(set(scores))} unique scores  ·  "
-        f"Top role: {top_role} ({top_titles.get(top_role, 0)}x)"
-    )
-
-    rows = ""
-    for r in out[:20]:
-        rows += (
-            f"<tr><td class='r'>{r['rank']}</td>"
-            f"<td class='i'>{r['candidate_id']}</td>"
-            f"<td class='s'>{r['score']:.6f}</td>"
-            f"<td class='rs'>{r['reasoning'][:160]}</td></tr>"
-        )
-    table = (
-        '<div class="tw"><table class="rt"><thead><tr>'
-        '<th style="width:52px">Rank</th><th style="width:130px">Candidate</th>'
-        '<th style="width:92px">Score</th><th>Reasoning</th>'
-        "</tr></thead><tbody>" + rows + "</tbody></table></div>"
-    )
-
-    return stats, table, csv_text
 
 
 with gr.Blocks(
@@ -409,16 +160,13 @@ with gr.Blocks(
             elem_classes="up-btn",
         )
 
-    # Progress display (visible during processing)
-    progress_html = gr.HTML('<div class="sm">Click above to upload a candidates.jsonl file.</div>')
-
-    # Results table (hidden initially)
+    # Results
     results_html = gr.HTML(visible=False)
 
-    # Download card (hidden until results come)
+    # Download
     with gr.Column(elem_classes="cd", visible=False) as dl_card:
         gr.HTML('<div class="cd-t">Download results</div>')
-        with gr.Row(elem_classes="dl-r"):
+        with gr.Row():
             gr.HTML(
                 '<span style="font-size:0.88rem;color:var(--text-secondary);flex:1">'
                 "Full submission.csv — all 100 ranked candidates.</span>"
@@ -442,77 +190,90 @@ with gr.Blocks(
 
     def process(file, progress=gr.Progress(track_tqdm=True)):
         if file is None:
-            yield _prog(0, "Upload a candidates.jsonl file to begin."), "", gr.update(visible=False), None
-            return
+            return "", gr.update(visible=False), None
 
         path = file if isinstance(file, str) else file.path
+
+        progress(0.02, desc="Loading file...")
         with open(path, "rb") as f:
             data = f.read()
 
-        progress(0.02, desc="Loaded file, parsing...")
-        yield _prog(5, "File loaded, parsing candidates..."), "", gr.update(visible=False), None
-
+        progress(0.05, desc="Loading config...")
         cfg = rank.load_config(str(CONFIG_PATH))
+
+        progress(0.08, desc="Parsing candidates...")
         try:
             text = data.decode("utf-8")
             candidates = [json.loads(line) for line in text.splitlines() if line.strip()]
         except Exception as e:
-            yield _prog(0, f"Error: {e}"), "", gr.update(visible=False), None
-            return
+            return f"<div style='color:#ef4444'>Error: {e}</div>", gr.update(visible=False), None
         if not candidates:
-            yield _prog(0, "No candidates found."), "", gr.update(visible=False), None
-            return
+            return "<div style='color:#f59e0b'>No candidates found.</div>", gr.update(visible=False), None
 
-        progress(0.05, desc=f"Loaded {len(candidates):,} candidates")
-        yield _prog(10, f"Loaded {len(candidates):,} candidates, computing TF-IDF..."), "", gr.update(visible=False), None
+        progress(0.1, desc=f"Computing TF-IDF ({len(candidates):,} candidates)...")
+        tfidf_scores = rank.compute_tfidf_scores(candidates, cfg, progress=progress)
 
-        # Compute TF-IDF with per-view progress
-        views = cfg["semantic"].get("views", {})
-        active_views = [(vn, vc) for vn, vc in views.items() if vc.get("enabled", True)]
-        nv = len(active_views)
-        blended = None
-        if nv > 0:
-            # Build view texts once (cheap)
-            texts_by_view = {}
-            for vname, vcfg in active_views:
-                texts_by_view[vname] = _build_view_texts(vname, vcfg, candidates)
-            for vi, (vname, vcfg) in enumerate(active_views):
-                pct = 0.1 + (vi / nv) * 0.45
-                progress(pct, desc=f"TF-IDF: {vname}...")
-                yield _prog(int(pct * 100), f"TF-IDF: {vname} ({vi+1}/{nv})..."), "", gr.update(visible=False), None
-                view_scores = rank.compute_tfidf_view(
-                    candidates, cfg, vname, vcfg, texts_by_view.get(vname)
-                )
-                wt = vcfg.get("weight", 1.0)
-                if blended is None:
-                    blended = view_scores * wt
-                else:
-                    blended += view_scores * wt
-        tfidf_scores = blended if blended is not None else np.zeros(len(candidates))
+        progress(0.5, desc=f"Ranking candidates...")
+        out, _ = rank.rank_candidates(candidates, cfg, tfidf_scores, progress=progress)
 
-        progress(0.6, desc="Ranking candidates...")
-        yield _prog(60, "TF-IDF complete, ranking candidates..."), "", gr.update(visible=False), None
+        progress(0.9, desc="Building output...")
 
-        out, _ = rank.rank_candidates(candidates, cfg, tfidf_scores)
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(["candidate_id", "rank", "score", "reasoning"])
+        for r in out:
+            w.writerow([r["candidate_id"], r["rank"], r["score"], r["reasoning"]])
+        csv_text = buf.getvalue()
 
-        progress(0.85, desc="Building output...")
-        yield _prog(90, "Building output..."), "", gr.update(visible=False), None
+        scores = [r["score"] for r in out]
+        top_titles = {}
+        for r in out:
+            t = r["reasoning"].split(" with ")[0].strip() if " with " in r["reasoning"] else ""
+            top_titles[t] = top_titles.get(t, 0) + 1
+        top_role = max(top_titles, key=top_titles.get) if top_titles else "N/A"
 
-        stats, table, csv_text = _build_output(candidates, out)
+        stats = (
+            f"{len(candidates)} candidates processed  ·  "
+            f"Score range {scores[-1]:.4f} - {scores[0]:.4f}  ·  "
+            f"{len(set(scores))} unique scores  ·  "
+            f"Top role: {top_role} ({top_titles.get(top_role, 0)}x)"
+        )
+
+        rows = ""
+        for r in out[:20]:
+            rows += (
+                f"<tr><td class='r'>{r['rank']}</td>"
+                f"<td class='i'>{r['candidate_id']}</td>"
+                f"<td class='s'>{r['score']:.6f}</td>"
+                f"<td class='rs'>{r['reasoning'][:160]}</td></tr>"
+            )
+        table = (
+            '<div class="tw"><table class="rt"><thead><tr>'
+            '<th style="width:52px">Rank</th><th style="width:130px">Candidate</th>'
+            '<th style="width:92px">Score</th><th>Reasoning</th>'
+            "</tr></thead><tbody>" + rows + "</tbody></table></div>"
+        )
+
+        summary = (
+            f"<div style='padding:0.75rem 1rem;background:#052e16;"
+            f"border:1px solid #166534;border-radius:6px;"
+            f"color:#34d399;font-size:0.88rem;font-weight:500;"
+            f"margin-bottom:0.75rem'>{stats}</div>"
+        )
 
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w")
         tmp.write(csv_text)
         tmp.close()
 
         progress(1.0, desc="Complete")
-        yield _prog(100, f"Done! {stats}"), table, gr.update(visible=True), tmp.name
+        return summary + table, gr.update(visible=True), tmp.name
 
     file_input.upload(
         fn=process,
         inputs=[file_input],
-        outputs=[progress_html, results_html, dl_card, download_btn],
+        outputs=[results_html, dl_card, download_btn],
     )
 
 
 if __name__ == "__main__":
-    demo.queue().launch(css=CSS, theme=gr.themes.Soft(primary_hue=gr.themes.colors.indigo, neutral_hue=gr.themes.colors.gray, radius_size=gr.themes.sizes.radius_sm))
+    demo.queue().launch(css=CSS, show_error=True)
