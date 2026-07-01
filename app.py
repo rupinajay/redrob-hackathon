@@ -223,7 +223,7 @@ label, .label-text {
 """
 
 
-def rank_candidates(file_bytes):
+def rank_candidates(file_bytes, progress=None):
     cfg = rank.load_config(str(CONFIG_PATH))
     try:
         text = file_bytes.decode("utf-8")
@@ -233,8 +233,18 @@ def rank_candidates(file_bytes):
     if not candidates:
         return "No candidates found.", "", ""
 
-    tfidf = rank.compute_tfidf_scores(candidates, cfg)
-    out, _ = rank.rank_candidates(candidates, cfg, tfidf)
+    if progress:
+        progress(0, desc="Processing upload...")
+
+    n = len(candidates)
+    if progress:
+        progress(0.05, desc=f"Loaded {n:,} candidates...")
+
+    tfidf = rank.compute_tfidf_scores(candidates, cfg, progress=progress)
+    out, _ = rank.rank_candidates(candidates, cfg, tfidf, progress=progress)
+
+    if progress:
+        progress(0.9, desc="Building output...")
 
     buf = io.StringIO()
     w = csv.writer(buf)
@@ -271,6 +281,9 @@ def rank_candidates(file_bytes):
         '<th style="width:92px">Score</th><th>Reasoning</th>'
         "</tr></thead><tbody>" + rows + "</tbody></table></div>"
     )
+
+    if progress:
+        progress(1, desc="Complete")
 
     return stats, table, csv_text
 
@@ -329,14 +342,14 @@ with gr.Blocks(
         "</div>"
     )
 
-    def process(file):
+    def process(file, progress=gr.Progress()):
         if file is None:
             sm = '<div class="sm">Upload a candidates.jsonl file to begin.</div>'
             return sm, "", gr.update(visible=False), None
         path = file if isinstance(file, str) else file.path
         with open(path, "rb") as f:
             data = f.read()
-        stats, table, csv_text = rank_candidates(data)
+        stats, table, csv_text = rank_candidates(data, progress=progress)
         sm = f'<div class="sm">{stats}</div>'
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w")
         tmp.write(csv_text)
