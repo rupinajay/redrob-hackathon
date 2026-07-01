@@ -128,29 +128,6 @@ body {
   color: var(--primary) !important;
 }
 
-.run-btn {
-  margin-top: 0.5rem;
-}
-.run-btn button {
-  width: 100% !important;
-  min-height: 44px !important;
-  padding: 0 1.5rem !important;
-  background: linear-gradient(135deg, #6366f1, #818cf8) !important;
-  border: none !important;
-  border-radius: var(--radius-sm) !important;
-  color: #000 !important;
-  font-family: var(--font) !important;
-  font-size: 0.88rem !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  transition: all 0.15s ease !important;
-  box-shadow: 0 2px 8px rgba(99,102,241,0.3) !important;
-}
-.run-btn button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99,102,241,0.5) !important;
-}
-
 /* ── Summary ── */
 .sm {
   padding: 0.75rem 1rem;
@@ -314,20 +291,15 @@ with gr.Blocks(
     with gr.Column(elem_classes="cd"):
         gr.HTML('<div class="cd-t">Upload candidates</div>')
         file_input = gr.UploadButton(
-            "Click to upload candidates.jsonl",
+            "Upload candidates.jsonl",
             file_types=[".jsonl"],
             file_count="single",
             variant="secondary",
             elem_classes="up-btn",
         )
-        run_btn = gr.Button(
-            "Rank Candidates",
-            variant="primary",
-            elem_classes="run-btn",
-        )
 
-    # Summary (hidden until results come)
-    summary_html = gr.HTML('<div class="sm">Awaiting upload...</div>')
+    # Summary
+    summary_html = gr.HTML('<div class="sm">Click above to upload a candidates.jsonl file.</div>')
 
     # Results table (hidden initially)
     results_html = gr.HTML("")
@@ -371,7 +343,7 @@ with gr.Blocks(
         tmp.close()
         return sm, table, gr.update(visible=True), tmp.name
 
-    run_btn.click(
+    file_input.upload(
         fn=process,
         inputs=[file_input],
         outputs=[summary_html, results_html, dl_card, download_btn],
