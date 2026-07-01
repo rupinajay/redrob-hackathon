@@ -128,6 +128,33 @@ body {
   color: var(--primary) !important;
 }
 
+/* ── Progress bar ── */
+.pc {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  background: var(--surface);
+}
+.pt {
+  height: 8px;
+  background: #1f1f1f;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+.pf {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #818cf8);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.ps {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
 /* ── Summary ── */
 .sm {
   padding: 0.75rem 1rem;
@@ -223,7 +250,56 @@ label, .label-text {
 """
 
 
-def rank_candidates(file_bytes, progress=None):
+def _prog(pct, text):
+    return (
+        '<div class="pc">'
+        f'<div class="pt"><div class="pf" style="width:{pct}%"></div></div>'
+        f'<div class="ps">{text}</div>'
+        "</div>"
+    )
+
+
+def _build_output(candidates, out):
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["candidate_id", "rank", "score", "reasoning"])
+    for r in out:
+        w.writerow([r["candidate_id"], r["rank"], r["score"], r["reasoning"]])
+    csv_text = buf.getvalue()
+
+    scores = [r["score"] for r in out]
+    top_titles = {}
+    for r in out:
+        t = r["reasoning"].split(" with ")[0].strip() if " with " in r["reasoning"] else ""
+        top_titles[t] = top_titles.get(t, 0) + 1
+    top_role = max(top_titles, key=top_titles.get) if top_titles else "N/A"
+
+    stats = (
+        f"{len(candidates)} candidates processed  ·  "
+        f"Score range {scores[-1]:.4f} - {scores[0]:.4f}  ·  "
+        f"{len(set(scores))} unique scores  ·  "
+        f"Top role: {top_role} ({top_titles.get(top_role, 0)}x)"
+    )
+
+    rows = ""
+    for r in out[:20]:
+        rows += (
+            f"<tr><td class='r'>{r['rank']}</td>"
+            f"<td class='i'>{r['candidate_id']}</td>"
+            f"<td class='s'>{r['score']:.6f}</td>"
+            f"<td class='rs'>{r['reasoning'][:160]}</td></tr>"
+        )
+    table = (
+        '<div class="tw"><table class="rt"><thead><tr>'
+        '<th style="width:52px">Rank</th><th style="width:130px">Candidate</th>'
+        '<th style="width:92px">Score</th><th>Reasoning</th>'
+        "</tr></thead><tbody>" + rows + "</tbody></table></div>"
+    )
+
+    return stats, table, csv_text
+
+
+def rank_candidates(file_bytes):
     cfg = rank.load_config(str(CONFIG_PATH))
     try:
         text = file_bytes.decode("utf-8")
@@ -233,18 +309,9 @@ def rank_candidates(file_bytes, progress=None):
     if not candidates:
         return "No candidates found.", "", ""
 
-    if progress:
-        progress(0, desc="Processing upload...")
-
     n = len(candidates)
-    if progress:
-        progress(0.05, desc=f"Loaded {n:,} candidates...")
-
-    tfidf = rank.compute_tfidf_scores(candidates, cfg, progress=progress)
-    out, _ = rank.rank_candidates(candidates, cfg, tfidf, progress=progress)
-
-    if progress:
-        progress(0.9, desc="Building output...")
+    tfidf = rank.compute_tfidf_scores(candidates, cfg)
+    out, _ = rank.rank_candidates(candidates, cfg, tfidf)
 
     buf = io.StringIO()
     w = csv.writer(buf)
@@ -282,9 +349,6 @@ def rank_candidates(file_bytes, progress=None):
         "</tr></thead><tbody>" + rows + "</tbody></table></div>"
     )
 
-    if progress:
-        progress(1, desc="Complete")
-
     return stats, table, csv_text
 
 
@@ -311,11 +375,11 @@ with gr.Blocks(
             elem_classes="up-btn",
         )
 
-    # Summary
-    summary_html = gr.HTML('<div class="sm">Click above to upload a candidates.jsonl file.</div>')
+    # Progress display (visible during processing)
+    progress_html = gr.HTML('<div class="sm">Click above to upload a candidates.jsonl file.</div>')
 
     # Results table (hidden initially)
-    results_html = gr.HTML("")
+    results_html = gr.HTML(visible=False)
 
     # Download card (hidden until results come)
     with gr.Column(elem_classes="cd", visible=False) as dl_card:
@@ -342,24 +406,50 @@ with gr.Blocks(
         "</div>"
     )
 
-    def process(file, progress=gr.Progress()):
+    def process(file):
         if file is None:
-            sm = '<div class="sm">Upload a candidates.jsonl file to begin.</div>'
-            return sm, "", gr.update(visible=False), None
+            yield _prog(0, "Upload a candidates.jsonl file to begin."), "", gr.update(visible=False), None
+            return
+
         path = file if isinstance(file, str) else file.path
         with open(path, "rb") as f:
             data = f.read()
-        stats, table, csv_text = rank_candidates(data, progress=progress)
-        sm = f'<div class="sm">{stats}</div>'
+
+        yield _prog(5, "File loaded, parsing candidates..."), "", gr.update(visible=False), None
+
+        cfg = rank.load_config(str(CONFIG_PATH))
+        try:
+            text = data.decode("utf-8")
+            candidates = [json.loads(line) for line in text.splitlines() if line.strip()]
+        except Exception as e:
+            yield _prog(0, f"Error: {e}"), "", gr.update(visible=False), None
+            return
+        if not candidates:
+            yield _prog(0, "No candidates found."), "", gr.update(visible=False), None
+            return
+
+        yield _prog(10, f"Loaded {len(candidates):,} candidates, computing TF-IDF..."), "", gr.update(visible=False), None
+
+        tfidf = rank.compute_tfidf_scores(candidates, cfg)
+
+        yield _prog(60, "TF-IDF complete, ranking candidates..."), "", gr.update(visible=False), None
+
+        out, _ = rank.rank_candidates(candidates, cfg, tfidf)
+
+        yield _prog(90, "Building output..."), "", gr.update(visible=False), None
+
+        stats, table, csv_text = _build_output(candidates, out)
+
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w")
         tmp.write(csv_text)
         tmp.close()
-        return sm, table, gr.update(visible=True), tmp.name
+
+        yield _prog(100, f"Done! {stats}"), table, gr.update(visible=True), tmp.name
 
     file_input.upload(
         fn=process,
         inputs=[file_input],
-        outputs=[summary_html, results_html, dl_card, download_btn],
+        outputs=[progress_html, results_html, dl_card, download_btn],
     )
 
 
