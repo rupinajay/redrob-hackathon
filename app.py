@@ -239,8 +239,7 @@ with gr.Blocks(
     with gr.Column(elem_classes="cd"):
         gr.HTML('<div class="cd-t">Upload candidates</div>')
         file_input = gr.UploadButton(
-            "Upload candidates.json / .jsonl",
-            file_types=[".jsonl", ".json"],
+            "Upload candidates.jsonl / .json",
             file_count="single",
             variant="secondary",
             elem_classes="up-btn",
