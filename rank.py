@@ -797,6 +797,7 @@ def main():
     parser.add_argument("--out", required=True)
     parser.add_argument("--config", default=None)
     parser.add_argument("--dump", action="store_true")
+    parser.add_argument("--xlsx", action="store_true", help="Write output in XLSX format (requires openpyxl)")
     args = parser.parse_args()
 
     config_path = args.config or str(Path(__file__).parent / "config.json")
@@ -823,12 +824,27 @@ def main():
     if args.dump:
         dump_top_features(all_scored, cfg, 20)
 
-    with open(args.out, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["candidate_id", "rank", "score", "reasoning"])
-        for r in results:
-            w.writerow([r["candidate_id"], r["rank"], r["score"], r["reasoning"]])
-    print(f"Written {len(results)} candidates to {args.out}")
+    if args.xlsx:
+        try:
+            from openpyxl import Workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Rankings"
+            ws.append(["candidate_id", "rank", "score", "reasoning"])
+            for r in results:
+                ws.append([r["candidate_id"], r["rank"], r["score"], r["reasoning"]])
+            wb.save(args.out)
+            print(f"Written {len(results)} candidates to {args.out} (XLSX)")
+        except ImportError:
+            print("openpyxl not installed. Install with: pip install openpyxl")
+            sys.exit(1)
+    else:
+        with open(args.out, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["candidate_id", "rank", "score", "reasoning"])
+            for r in results:
+                w.writerow([r["candidate_id"], r["rank"], r["score"], r["reasoning"]])
+        print(f"Written {len(results)} candidates to {args.out}")
 
 
 if __name__ == "__main__":
