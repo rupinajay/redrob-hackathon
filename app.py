@@ -7,6 +7,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import openpyxl
+
 import gradio as gr
 import numpy as np
 
@@ -167,6 +169,21 @@ progress, .progress-level {
   cursor: pointer !important;
 }
 .rank-btn button:hover { opacity: 0.9 !important; }
+
+.dl-btn { width: 100% !important; margin-top: 0.25rem; }
+.dl-btn button {
+  width: 100% !important;
+  background: var(--primary) !important;
+  color: #000 !important;
+  font-weight: 600 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 0.75rem 1rem !important;
+  font-size: 0.95rem !important;
+  cursor: pointer !important;
+  letter-spacing: 0.02em;
+}
+.dl-btn button:hover { opacity: 0.9 !important; }
 """
 
 
@@ -230,7 +247,7 @@ with gr.Blocks(
 ) as demo:
     gr.HTML(
         '<div class="hdr"><h1>Redrob Candidate Ranker</h1>'
-        "<p>Upload candidate data to rank the top 100 for the Senior AI Engineer role.</p></div>"
+        "<p>Upload candidates to rank the top 100 for the Senior AI Engineer role.</p></div>"
     )
 
     gr.HTML('<div class="mn">')
@@ -261,7 +278,7 @@ with gr.Blocks(
         "<li>Scoring uses TF-IDF semantic matching, skill evidence, career trajectory,"
         " education, and location signals</li>"
         "<li>The top 100 candidates are ranked with unique scores and reasoning text</li>"
-        "<li>Download the full <code>submission.csv</code> for submission</li>"
+        "<li>Download the full <code>submission.xlsx</code> for submission</li>"
         "</ul></div>"
     )
 
@@ -278,7 +295,7 @@ with gr.Blocks(
         '    handle_file("candidates.jsonl"),\n'
         '    api_name="/rank"\n'
         ")\n"
-        "<span style='color:#64748b'># result[0] = stats HTML, result[1] = CSV path</span>"
+        "<span style='color:#64748b'># result[0] = stats HTML, result[1] = XLSX path</span>"
         "</pre></div>"
     )
 
@@ -288,19 +305,12 @@ with gr.Blocks(
         results_html = gr.HTML()
 
     # Download
-    with gr.Column(elem_classes="cd", visible=False) as dl_card:
-        gr.HTML('<div class="cd-t">Download results</div>')
-        with gr.Row():
-            gr.HTML(
-                '<span style="font-size:0.88rem;color:var(--text-secondary);flex:1">'
-                "Full submission.csv — all 100 ranked candidates.</span>"
-            )
-            download_btn = gr.File(
-                label="Download submission.csv",
-                show_label=False,
-                file_types=[".csv"],
-                interactive=False,
-            )
+    with gr.Column(visible=False) as dl_card:
+        download_btn = gr.DownloadButton(
+            "Download submission.xlsx",
+            variant="primary",
+            elem_classes="dl-btn",
+        )
 
     gr.HTML("</div>")
 
@@ -352,13 +362,6 @@ with gr.Blocks(
 
         progress(0.9, desc="Building output...")
 
-        buf = io.StringIO()
-        w = csv.writer(buf)
-        w.writerow(["candidate_id", "rank", "score", "reasoning"])
-        for r in out:
-            w.writerow([r["candidate_id"], r["rank"], r["score"], r["reasoning"]])
-        csv_text = buf.getvalue()
-
         scores = [r["score"] for r in out]
         top_titles = {}
         for r in out:
@@ -395,8 +398,16 @@ with gr.Blocks(
             f"margin-bottom:0.75rem'>{stats}</div>"
         )
 
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w")
-        tmp.write(csv_text)
+        # Write XLSX
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Rankings"
+        headers = ["candidate_id", "rank", "score", "reasoning"]
+        ws.append(headers)
+        for r in out:
+            ws.append([r["candidate_id"], r["rank"], r["score"], r["reasoning"]])
+        wb.save(tmp.name)
         tmp.close()
 
         progress(1.0, desc="Complete")
