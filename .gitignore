@@ -1,7 +1,5 @@
+*.pdf
+*.pptx
+*.xlsx
 __pycache__/
 *.pyc
-*.docx
-*.csv
-candidates.jsonl
-/tmp/
-.DS_Store
