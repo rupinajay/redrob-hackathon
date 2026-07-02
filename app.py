@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Redrob Ranker — upload candidates.jsonl, get top 100 rankings."""
+"""Redrob Ranker — upload candidates, preview data, rank the top 100."""
 import json
 import csv
 import io
 import sys
 import tempfile
-import time
 from pathlib import Path
 
 import gradio as gr
@@ -59,7 +58,7 @@ body {
 }
 
 .mn {
-  max-width: 940px; margin: 0 auto; padding: 1.5rem 1rem 2rem;
+  max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 2rem;
 }
 
 .cd {
@@ -101,13 +100,33 @@ body {
 }
 .ft a { color: var(--primary); text-decoration: none; font-weight: 500; }
 
-/* ── Progress bar ── */
 progress, .progress-level {
   height: 8px !important;
   border-radius: 4px !important;
 }
 
-/* ── Results table ── */
+.pt {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.pt thead th {
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-size: 0.68rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 7px 10px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.pt tbody td {
+  padding: 7px 10px; vertical-align: top;
+  border-bottom: 1px solid var(--surface-hover);
+  color: var(--text-secondary);
+}
+.pt tbody tr:last-child td { border-bottom: none; }
+.pt .pi { font-family: 'SF Mono', monospace; color: var(--text-muted); font-size: 0.76rem; }
+.pt .ptt { color: var(--text); font-weight: 500; }
+.pt .pl { font-size: 0.78rem; }
+
 .tw {
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -134,17 +153,84 @@ progress, .progress-level {
 .rt td.i { font-family: 'SF Mono', monospace; font-size: 0.78rem; color: var(--text-muted); }
 .rt td.s { font-weight: 600; font-family: 'SF Mono', monospace; font-size: 0.8rem; color: var(--text); }
 .rt td.rs { font-size: 0.82rem; line-height: 1.5; color: var(--text-secondary); }
+
+.rank-btn { margin-top: 0.25rem; }
+.rank-btn button {
+  width: 100% !important;
+  background: var(--primary) !important;
+  color: #000 !important;
+  font-weight: 600 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 0.6rem 1rem !important;
+  font-size: 0.88rem !important;
+  cursor: pointer !important;
+}
+.rank-btn button:hover { opacity: 0.9 !important; }
 """
+
+
+def parse_candidates(raw_bytes):
+    text = raw_bytes.decode("utf-8").strip()
+    # Try JSONL first (one object per line)
+    lines = [l for l in text.splitlines() if l.strip()]
+    if lines:
+        try:
+            objs = [json.loads(l) for l in lines]
+            # Verify they look like candidate objects
+            if all(isinstance(o, dict) and "candidate_id" in o for o in objs):
+                return objs
+        except json.JSONDecodeError:
+            pass
+    # Try JSON array
+    try:
+        objs = json.loads(text)
+        if isinstance(objs, list) and all(isinstance(o, dict) and "candidate_id" in o for o in objs):
+            return objs
+    except json.JSONDecodeError:
+        pass
+    return None
+
+
+def build_preview(candidates):
+    n = len(candidates)
+    rows = ""
+    for c in candidates[:5]:
+        p = c.get("profile", {})
+        cid = c.get("candidate_id", "?")
+        title = p.get("current_title", "?")
+        yoe = p.get("years_of_experience", "?")
+        loc = f"{p.get('location', '?')}, {p.get('country', '?')}"
+        headline = (p.get("headline", "") or "")[:70]
+        rows += (
+            f"<tr>"
+            f"<td class='pi'>{cid}</td>"
+            f"<td class='ptt'>{title}</td>"
+            f"<td>{yoe}</td>"
+            f"<td class='pl'>{loc}</td>"
+            f"<td class='pl'>{headline}</td>"
+            f"</tr>"
+        )
+
+    more = f"<div style='color:var(--text-muted);font-size:0.8rem;padding:7px 10px'>... and {n - 5} more candidates</div>" if n > 5 else ""
+
+    return (
+        f"<div style='padding:0.5rem 0 0.25rem 0;color:var(--text);font-size:0.88rem;font-weight:600'>"
+        f"{n:,} candidates loaded</div>"
+        f"<div class='tw'><table class='pt'><thead><tr>"
+        f"<th style='width:120px'>ID</th><th style='width:140px'>Title</th>"
+        f"<th style='width:52px'>YOE</th><th style='width:180px'>Location</th><th>Headline</th>"
+        f"</tr></thead><tbody>{rows}</tbody></table>{more}</div>"
+    )
 
 
 with gr.Blocks(
     title="Redrob Candidate Ranker",
     fill_height=True,
 ) as demo:
-    # Header
     gr.HTML(
         '<div class="hdr"><h1>Redrob Candidate Ranker</h1>'
-        "<p>Upload candidates.jsonl to rank the top 100 for the Senior AI Engineer role.</p></div>"
+        "<p>Upload candidate data to rank the top 100 for the Senior AI Engineer role.</p></div>"
     )
 
     gr.HTML('<div class="mn">')
@@ -153,19 +239,26 @@ with gr.Blocks(
     with gr.Column(elem_classes="cd"):
         gr.HTML('<div class="cd-t">Upload candidates</div>')
         file_input = gr.UploadButton(
-            "Upload candidates.jsonl",
-            file_types=[".jsonl"],
+            "Upload candidates.json / .jsonl",
+            file_types=[".jsonl", ".json"],
             file_count="single",
             variant="secondary",
             elem_classes="up-btn",
         )
+
+    # Preview card (hidden until file uploaded)
+    preview_html = gr.HTML(visible=False)
+
+    # Rank button (hidden until preview shown)
+    rank_btn = gr.Button("Rank Candidates", variant="primary", visible=False, elem_classes="rank-btn")
 
     # How it works
     gr.HTML(
         '<div class="cd">'
         '<div class="cd-t">How it works</div>'
         '<ul style="margin:0;padding-left:1.2rem;font-size:0.86rem;color:var(--text-secondary);line-height:1.7">'
-        "<li>Upload a <code>candidates.jsonl</code> file from the Redrob challenge dataset</li>"
+        "<li>Upload a <code>candidates.jsonl</code> or <code>candidates.json</code> file from the Redrob challenge dataset</li>"
+        "<li>Review a preview of the loaded candidates before ranking</li>"
         "<li>Each candidate is scored against the Senior AI Engineer job description</li>"
         "<li>Scoring uses TF-IDF semantic matching, skill evidence, career trajectory,"
         " education, and location signals</li>"
@@ -185,13 +278,13 @@ with gr.Blocks(
         'client = Client("https://rupinajay-redrob-ranker.hf.space")\n'
         'result = client.predict(\n'
         '    handle_file("candidates.jsonl"),\n'
-        '    api_name="/process"\n'
+        '    api_name="/rank"\n'
         ")\n"
-        "<span style='color:#64748b'># result[0] = stats HTML, result[1] = results CSV path</span>"
+        "<span style='color:#64748b'># result[0] = stats HTML, result[1] = CSV path</span>"
         "</pre></div>"
     )
 
-    # Results
+    # Results area
     results_html = gr.HTML(visible=False)
 
     # Download
@@ -211,7 +304,6 @@ with gr.Blocks(
 
     gr.HTML("</div>")
 
-    # Footer
     gr.HTML(
         '<div class="ft">'
         "CPU-only  ·  No GPU  ·  ~30s per 100K candidates  ·  "
@@ -219,32 +311,44 @@ with gr.Blocks(
         "</div>"
     )
 
-    def process(file, progress=gr.Progress(track_tqdm=True)):
+    # State to hold parsed candidates across steps
+    candidates_state = gr.State()
+
+    def load_and_preview(file):
         if file is None:
-            return "", gr.update(visible=False), None
+            return "", gr.update(visible=False), gr.update(visible=False), None
 
         path = file if isinstance(file, str) else file.path
-
-        progress(0.02, desc="Loading file...")
         with open(path, "rb") as f:
-            data = f.read()
+            raw = f.read()
+
+        candidates = parse_candidates(raw)
+        if candidates is None:
+            err = "<div style='color:#ef4444;padding:0.75rem 0'>Error: could not parse file. Expected .jsonl (one JSON per line) or .json (array).</div>"
+            return err, gr.update(visible=False), gr.update(visible=False), None
+        if len(candidates) == 0:
+            err = "<div style='color:#f59e0b;padding:0.75rem 0'>No candidates found in file.</div>"
+            return err, gr.update(visible=False), gr.update(visible=False), None
+
+        preview = build_preview(candidates)
+        return (
+            preview,
+            gr.update(visible=True),
+            gr.update(visible=True),
+            candidates,
+        )
+
+    def rank_candidates(candidates, progress=gr.Progress(track_tqdm=True)):
+        if not candidates:
+            return "", gr.update(visible=False), None
 
         progress(0.05, desc="Loading config...")
         cfg = rank.load_config(str(CONFIG_PATH))
 
-        progress(0.08, desc="Parsing candidates...")
-        try:
-            text = data.decode("utf-8")
-            candidates = [json.loads(line) for line in text.splitlines() if line.strip()]
-        except Exception as e:
-            return f"<div style='color:#ef4444'>Error: {e}</div>", gr.update(visible=False), None
-        if not candidates:
-            return "<div style='color:#f59e0b'>No candidates found.</div>", gr.update(visible=False), None
-
         progress(0.1, desc=f"Computing TF-IDF ({len(candidates):,} candidates)...")
         tfidf_scores = rank.compute_tfidf_scores(candidates, cfg, progress=progress)
 
-        progress(0.5, desc=f"Ranking candidates...")
+        progress(0.5, desc="Ranking candidates...")
         out, _ = rank.rank_candidates(candidates, cfg, tfidf_scores, progress=progress)
 
         progress(0.9, desc="Building output...")
@@ -300,8 +404,14 @@ with gr.Blocks(
         return summary + table, gr.update(visible=True), tmp.name
 
     file_input.upload(
-        fn=process,
+        fn=load_and_preview,
         inputs=[file_input],
+        outputs=[preview_html, preview_html, rank_btn, candidates_state],
+    )
+
+    rank_btn.click(
+        fn=rank_candidates,
+        inputs=[candidates_state],
         outputs=[results_html, dl_card, download_btn],
     )
 
