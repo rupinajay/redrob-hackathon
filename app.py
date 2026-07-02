@@ -246,11 +246,10 @@ with gr.Blocks(
             elem_classes="up-btn",
         )
 
-    # Preview card (hidden until file uploaded)
-    preview_html = gr.HTML(visible=False)
-
-    # Rank button (hidden until preview shown)
-    rank_btn = gr.Button("Rank Candidates", variant="primary", visible=False, elem_classes="rank-btn")
+    # Preview + rank wrapped in a column toggled on upload
+    with gr.Column(visible=False) as preview_rank_card:
+        preview_html = gr.HTML()
+        rank_btn = gr.Button("Rank Candidates", variant="primary", elem_classes="rank-btn")
 
     # How it works
     gr.HTML(
@@ -285,7 +284,9 @@ with gr.Blocks(
     )
 
     # Results area
-    results_html = gr.HTML(visible=False)
+    with gr.Column(visible=False) as results_card:
+        gr.HTML('<div class="cd-t">Ranked candidates</div>')
+        results_html = gr.HTML()
 
     # Download
     with gr.Column(elem_classes="cd", visible=False) as dl_card:
@@ -316,7 +317,7 @@ with gr.Blocks(
 
     def load_and_preview(file):
         if file is None:
-            return "", gr.update(visible=False), gr.update(visible=False), None
+            return "", gr.update(visible=False), None
 
         path = file if isinstance(file, str) else file.path
         with open(path, "rb") as f:
@@ -325,22 +326,21 @@ with gr.Blocks(
         candidates = parse_candidates(raw)
         if candidates is None:
             err = "<div style='color:#ef4444;padding:0.75rem 0'>Error: could not parse file. Expected .jsonl (one JSON per line) or .json (array).</div>"
-            return err, gr.update(visible=False), gr.update(visible=False), None
+            return err, gr.update(visible=False), None
         if len(candidates) == 0:
             err = "<div style='color:#f59e0b;padding:0.75rem 0'>No candidates found in file.</div>"
-            return err, gr.update(visible=False), gr.update(visible=False), None
+            return err, gr.update(visible=False), None
 
         preview = build_preview(candidates)
         return (
             preview,
-            gr.update(visible=True),
             gr.update(visible=True),
             candidates,
         )
 
     def rank_candidates(candidates, progress=gr.Progress(track_tqdm=True)):
         if not candidates:
-            return "", gr.update(visible=False), None
+            return "", gr.update(visible=False), gr.update(visible=False), None
 
         progress(0.05, desc="Loading config...")
         cfg = rank.load_config(str(CONFIG_PATH))
@@ -401,18 +401,25 @@ with gr.Blocks(
         tmp.close()
 
         progress(1.0, desc="Complete")
-        return summary + table, gr.update(visible=True), tmp.name
+        return gr.update(value=summary + table, visible=True), gr.update(visible=True), gr.update(visible=True), tmp.name
 
     file_input.upload(
         fn=load_and_preview,
         inputs=[file_input],
-        outputs=[preview_html, preview_html, rank_btn, candidates_state],
+        outputs=[preview_html, preview_rank_card, candidates_state],
     )
 
     rank_btn.click(
         fn=rank_candidates,
         inputs=[candidates_state],
-        outputs=[results_html, dl_card, download_btn],
+        outputs=[results_html, results_card, dl_card, download_btn],
+    )
+
+    # also hide preview and rank button once ranking starts
+    rank_btn.click(
+        fn=lambda: gr.update(visible=False),
+        inputs=None,
+        outputs=[preview_rank_card],
     )
 
 
