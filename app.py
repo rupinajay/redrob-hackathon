@@ -160,6 +160,37 @@ with gr.Blocks(
             elem_classes="up-btn",
         )
 
+    # How it works
+    gr.HTML(
+        '<div class="cd">'
+        '<div class="cd-t">How it works</div>'
+        '<ul style="margin:0;padding-left:1.2rem;font-size:0.86rem;color:var(--text-secondary);line-height:1.7">'
+        "<li>Upload a <code>candidates.jsonl</code> file from the Redrob challenge dataset</li>"
+        "<li>Each candidate is scored against the Senior AI Engineer job description</li>"
+        "<li>Scoring uses TF-IDF semantic matching, skill evidence, career trajectory,"
+        " education, and location signals</li>"
+        "<li>The top 100 candidates are ranked with unique scores and reasoning text</li>"
+        "<li>Download the full <code>submission.csv</code> for submission</li>"
+        "</ul></div>"
+    )
+
+    # API usage
+    gr.HTML(
+        '<div class="cd">'
+        '<div class="cd-t">Use via API</div>'
+        '<pre style="background:#111;border:1px solid #1f1f1f;border-radius:6px;'
+        'padding:1rem;font-size:0.78rem;line-height:1.6;overflow-x:auto;color:#94a3b8">'
+        '<span style="color:#64748b"># pip install gradio-client</span>\n'
+        "from gradio_client import Client, handle_file\n\n"
+        'client = Client("https://rupinajay-redrob-ranker.hf.space")\n'
+        'result = client.predict(\n'
+        '    handle_file("candidates.jsonl"),\n'
+        '    api_name="/process"\n'
+        ")\n"
+        "<span style='color:#64748b'># result[0] = stats HTML, result[1] = results CSV path</span>"
+        "</pre></div>"
+    )
+
     # Results
     results_html = gr.HTML(visible=False)
 
@@ -276,4 +307,4 @@ with gr.Blocks(
 
 
 if __name__ == "__main__":
-    demo.queue().launch(css=CSS, show_error=True)
+    demo.queue().launch(css=CSS)
